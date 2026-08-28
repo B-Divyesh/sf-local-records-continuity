@@ -1,0 +1,11 @@
+{
+  "slug": "local-records-continuity",
+  "title": "Continuity Pack",
+  "territory": "utilities",
+  "user": "Small businesses using self-hosted or local admin software who need a tested, readable recovery pack for invoices, customers, and business records.",
+  "smallest_useful_product": "Local CLI that packages configured export files, hashes and encrypts them, writes a plain-language restore manifest, verifies a target copy, and runs a scheduled dry-read. Non-goals: hosted backup storage, database administration, or vendor-specific restore automation.",
+  "success_measure": "A pilot owner can locate and verify a complete recent recovery pack in under ten minutes, and scheduled verification fails loudly within one run when the target is unavailable.",
+  "artifact_class": "cli",
+  "monetization": "one-time",
+  "constraints": "Use authenticated encryption and OS keychain/passphrase support; never upload without an explicit target; document that verification is not a full application restore."
+}
