@@ -82,9 +82,32 @@ npm audit --audit-level=high
 
 ## Deployment and final live checks
 
-Deployment and final live checks are recorded below after the static work-order
-deploy completes. Re-run locally with `npm run build:site`; deploy `dist/site/`
-using `/opt/fleet/lib/deploy-static.sh local-records-continuity dist/site`.
+The work-order static deployment completed from `dist/site/` to
+<https://local-records-continuity.sociobot.in>. The live and locally built
+`index.html` SHA-256 are both
+`f08ef17fd5024bc8f29a8bd40e5a71114b9f9929ffb42c6d2f97f450829b5aa4`.
+
+- Factory `verify-url.sh`: HTTP 200 in 943 ms; title and `lang=en` present,
+  exactly one `h1`, main landmark, no missing image alt, no unlabeled buttons,
+  and no console errors.
+- Live desktop and 390x844 Chromium: no horizontal overflow or console/page
+  errors. Keyboard Enter on Buy gives the unavailable status and generated no
+  checkout request; arrow navigation still selected the Verify demo tab. The
+  first keyboard focus from `/` was the Skip-to-main link.
+- Live Playwright Axe scan: zero serious/critical findings on `/`, `/privacy/`,
+  and `/terms/`. (Home retains the existing non-serious
+  `landmark-complementary-is-top-level` advisory.)
+- The service worker controls `/`; `registration.update()` completed. A 390px
+  offline reload kept the h1 available and displayed the offline status strip.
+- Headers: immutable one-year caching for hashed JS/CSS/WebP; `sw.js` has
+  `no-cache, no-store, must-revalidate`; the manifest is
+  `application/manifest+json` with one-hour caching; sampled responses include
+  the configured Permissions-Policy.
+- Lighthouse mobile: Performance 100, Accessibility 100, Best Practices 100,
+  SEO 100; FCP 1.0 s, LCP 1.5 s, TBT 50 ms, CLS 0.
+
+Re-run locally with `npm run build:site`; deploy `dist/site/` using
+`/opt/fleet/lib/deploy-static.sh local-records-continuity dist/site`.
 
 ## Remaining factory action
 
