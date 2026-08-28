@@ -1,141 +1,112 @@
-# Continuity Pack v0.1.0 — handoff
+# Continuity Pack repair handoff
 
-## Independent verification result: **FAIL**
+- Date: 2026-08-28
+- Work order: `local-records-continuity-repair-1`
+- Verifier report: `71c05d22955bbbefe296d6845626777f15a87263`
+- Rejected candidate: `559ad0beefb7954e546127d8b0561bf3f75a6370`
+- Repair commit: `3743651` plus this handoff commit
+- Artifact/deployment class: Rust CLI + static Azure Static Web Apps site
+- Live URL: https://local-records-continuity.sociobot.in
 
-Verified on 2026-08-28 against candidate
-`559ad0beefb7954e546127d8b0561bf3f75a6370` and
-https://local-records-continuity.sociobot.in. The live root HTML is byte-for-byte
-identical to the freshly built candidate, so this is not a stale deployment.
+## Repair status
 
-- **P1:** the visible Plus checkout links to `pilot-api.sociobot.in` and returns
-  HTTP 404. The production Sociobot checkout endpoint also returned HTTP 404.
-- **P1:** the live/copyable install command combines mutually exclusive Cargo
-  `--git` and `--path` arguments and fails immediately.
-- **P2:** live static assets and `sw.js` have only 30-second caching and omit
-  the shipped Permissions-Policy; immutable/no-cache header rules were not
-  applied.
+The invalid install command and response-policy defects are repaired and proven
+on the live deployment. The site now points only at the required production
+Sociobot billing origin. The checkout itself still returns HTTP 404 because the
+factory billing registry has no `local-records-continuity` product entry. Product
+registration is outside this repository and was not available through the
+injected worker tooling, so release remains blocked on that factory-owned action.
 
-The encrypted local CLI workflow, test/build/type/lint checks, package consumer
-install, 390px/keyboard/reduced-motion/Axe checks, offline PWA reload, and asset
-budgets otherwise passed. See `.factory/verification.md` for exact commands,
-responses, metrics, and remediation. Do not release until the P1 defects are
-fixed and the live deployment is re-verified.
+| Verifier finding | Root-cause repair | Regression/evidence |
+| --- | --- | --- |
+| Cargo rejected the displayed `--git` + `--path` command | Replaced it in the landing page and README with `cargo install --git https://github.com/B-Divyesh/sf-local-records-continuity continuity-pack --locked`. | The exact command completed an isolated install and the resulting `continuity --help` exposed all documented commands. Playwright asserts both rendered and copyable values and rejects the incompatible flag combination. |
+| Production page used the pilot billing origin | Production is now the source/default origin in HTML and TypeScript; pilot is an explicit staging-only override. | Built and live HTML use `https://api.sociobot.in/api/v1/products/local-records-continuity/checkout`; the license test intercepts the production verify URL and proves return-token storage, URL stripping, unlock, and daily caching. |
+| Azure ignored Netlify-style `_headers` | Added deploy-native `staticwebapp.config.json` with immutable hashed assets/hero, no-store service worker, manifest MIME mapping, and global security headers. | A release-contract test parses the built policy. Both the SWA emulator and live responses show the intended values; details below. |
 
-Date: 2026-08-28
+## Clean local verification
 
-Work order: `local-records-continuity-build-1`
-
-Deploy root: `dist/site/`
-
-## What shipped
-
-### Rust CLI
-
-- `continuity init` writes a documented, validated TOML configuration.
-- `continuity pack` resolves configured files/directories, rejects missing
-  required sources and symlinks, records per-file SHA-256 hashes, builds a tar +
-  zstd archive, derives a key with Argon2id, and encrypts the result with
-  XChaCha20-Poly1305.
-- A pack writes three artifacts: authenticated `.cpack`, plain-language
-  `.manifest.txt`, and machine-readable `.receipt.json`.
-- A target must be explicitly supplied, already exist, and be writable. The CLI
-  never creates an absent target (important for missing mounts), never uploads,
-  and immediately verifies both the local pack and target copy.
-- `continuity verify` authenticates/decrypts the archive and re-hashes every
-  record without extracting it. `continuity check` finds the newest target pack,
-  performs the same dry-read, and enforces an age limit.
-- `continuity restore` accepts only a new/empty destination, validates safe
-  archive paths and all hashes before writing, then creates `RESTORE-REPORT.txt`.
-- `continuity schedule` previews a daily check and can idempotently install it in
-  the current user’s crontab. An absent, stale, damaged, or undecryptable target
-  exits non-zero with a specific message.
-- Passphrases work via file, `CONTINUITY_PASSPHRASE`, hidden prompt, or native OS
-  credential store commands (Linux Secret Service, macOS Keychain, Windows
-  Password Vault). `--ci` never prompts. `--json` and stable exit codes cover
-  automation.
-- The public Rust API is documented and its example compiles as a doctest. The
-  crate is packaged as `continuity-pack` with the `continuity` binary at semver
-  `0.1.0`.
-
-### Static landing/docs site
-
-- A distinct topographic-cartography identity is recorded in
-  `.factory/design.md`: warm field paper, pine survey ink, ochre checkpoints,
-  system serif + monospace typography, 8px rhythm, and reduced-motion behavior.
-- The hero is an original factory-generated engraved map illustration, inspected
-  and optimized to a 146,138-byte WebP. Prompt, model route, and provenance are
-  recorded in the design thesis.
-- The responsive landing page explains the recovery boundary, three-step route,
-  install/configuration commands, keychain support, and automation behavior. A
-  keyboard-operable Pack/Verify/Restore transcript makes the CLI output concrete.
-- First-class loading, empty license, inactive license, cached/offline license,
-  and site-offline states are implemented. A versioned service worker precaches
-  all hashed shell assets plus the legal pages.
-- Continuity Plus is a clearly optional $39 one-time field kit. The free safety
-  workflow remains complete. Checkout uses the Sociobot hosted endpoint; return
-  tokens are stored at `sb_license:local-records-continuity`, stripped from the
-  URL, verified no more than daily, and restorable by paste. The staging default
-  is `pilot-api.sociobot.in`.
-- `/privacy/` and `/terms/` explain local storage, verification limits,
-  merchant-of-record handling, refund revocation, and the absence of telemetry.
-- No analytics, third-party fonts, runtime CDN scripts, or payment-provider embed
-  is present.
-
-## How to run and verify
+Run from the repository root:
 
 ```sh
 npm ci
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+npm run typecheck
 npm test
 npm run build
-cargo clippy --workspace --all-targets -- -D warnings
 cargo package --manifest-path crates/continuity/Cargo.toml --allow-dirty
 npm audit --audit-level=high
 ```
 
-Verified locally:
+Results from a clean dependency install:
 
-- `npm test`: pass — 11 Rust unit/integration/doc tests and 10 Playwright tests
-  across desktop Chromium and a 390×844 mobile viewport.
-- Playwright Axe: zero serious or critical violations on home, privacy, and terms.
-- Browser checks: zero console errors; keyboard tab arrows, checkout return,
-  once-daily license caching, mobile overflow, and offline reload all pass.
-- Factory `verify-url.sh`: HTTP 200; title present; `lang=en`; exactly one `h1`;
-  main landmark present; zero missing image alts; zero unlabeled buttons; zero
-  console errors.
-- `npm run build`: pass; release CLI at `target/release/continuity` and static
-  deploy output at `dist/site/index.html`.
-- `cargo clippy -D warnings`: pass.
-- `cargo package`: pass including clean package verification; output is under
-  `target/package/continuity-pack-0.1.0.crate`. Do not publish from this worker.
-- `npm audit --audit-level=high`: zero vulnerabilities.
-- Asset budgets: initial home JS 5,202 bytes, shared helper JS 711 bytes, CSS
-  12,447 bytes, no font payload, hero WebP 146,138 bytes.
-- Lighthouse mobile: Performance 100, Accessibility 100, Best Practices 100,
-  SEO 100; LCP 1.8 s, CLS 0, total blocking time 0 ms, speed index 1.1 s.
-- A manual CLI run packed three fixture exports to an explicit target, verified
-  the target through JSON mode, restored all three, and produced a valid schedule
-  preview.
+- `npm ci`: pass; 24 packages installed, 0 vulnerabilities.
+- Rust format and Clippy with warnings denied: pass.
+- TypeScript no-emit typecheck: pass.
+- Rust: 4 library tests, 2 binary tests, 4 CLI integration tests, and 1
+  doctest passed.
+- Playwright 1.58.2: 11 effective tests passed across desktop Chromium and
+  390×844 mobile; one duplicate static-contract case was intentionally skipped
+  on mobile. Home, privacy, and terms had zero serious/critical Axe findings.
+- Production build: pass; `target/release/continuity` and `dist/site/index.html`
+  produced.
+- `cargo package`: pass, including Cargo's package verification;
+  `target/package/continuity-pack-0.1.0.crate` is 26,266 bytes. A separate
+  consumer unpack/install ran `continuity 0.1.0`. Do not publish from this
+  worker.
 
-## Release steps
+Manual CLI acceptance used fresh CSV/text fixtures and an already-created
+target. JSON-mode init, pack, verify, freshness check, and restore succeeded;
+the pack reported 3 files and `verified:true`, and all restored files compared
+byte-for-byte. A wrong passphrase returned exit 4. An absent target returned
+exit 3 and was not created.
 
-1. Register the product in the Sociobot billing factory if it is not registered.
-2. Build the release site with
-   `VITE_BILLING_API_BASE=https://api.sociobot.in/api/v1 npm run build:site` so
-   checkout and verification move from pilot to production.
-3. Publish platform binaries/crate from factory-owned CI credentials. Suggested
-   package check: `cargo package --manifest-path crates/continuity/Cargo.toml`.
-4. Deploy only `dist/site/`; the factory owns DNS and infrastructure.
+## Browser, accessibility, privacy, offline, and performance
 
-## Known gaps
+- Factory `verify-url.sh`: HTTP 200, 625 ms load, title and `lang=en` present,
+  exactly one `h1` and one main landmark, no missing image alts, no unlabeled
+  buttons, and no console errors.
+- Fresh live desktop and 390px contexts: no console/page errors, no horizontal
+  overflow, no initial third-party requests, zero serious/critical Axe findings,
+  and the first keyboard focus is the skip link with a visible 3px solid outline.
+- Reduced motion computes the contour animation to `0.00001s`.
+- Service-worker `registration.update()` completed; after an offline reload the
+  page remained controlled, the complete heading loaded, and the offline strip
+  was visible.
+- No analytics, CDN fonts/scripts, or payment-provider embed is present. The
+  production verify endpoint returned HTTP 200 with `valid:false` for an invalid
+  smoke token, and no license is required for the free experience.
+- Live Lighthouse mobile: Performance 99, Accessibility 100, Best Practices
+  100, SEO 100; FCP 1.5 s, LCP 2.1 s, CLS 0, TBT 0 ms.
+- Built budgets: home JS 5,196 B, shared JS 711 B, CSS 12,447 B, no font
+  payload, hero WebP 146,138 B.
 
-- Verification intentionally proves archive authenticity and per-file integrity,
-  not a vendor-specific application import. This boundary is repeated in the CLI,
-  manifest, site, and terms.
-- Pack creation and verification currently buffer the compressed archive in
-  memory. This is appropriate for typical CSV/PDF export sets; multi-gigabyte
-  packs should move to framed streaming encryption in a later release.
-- Automatic schedule installation uses `crontab` on Linux/macOS. Windows users
-  can schedule the printed `continuity --ci check ...` command with Task Scheduler;
-  automatic Task Scheduler registration is not included in v0.1.0.
-- Linux keychain use requires `secret-tool` and an unlocked Secret Service. A
-  protected passphrase file remains the documented headless-server alternative.
+## Deployment and live policy evidence
+
+The configured work-order build (`npm ci && npm run build:site`) was deployed
+from `dist/site/` with factory deployment ID
+`05f6e106-531f-4c7f-8519-2235972b8ccf`. The live and built `index.html` SHA-256
+are both `6e154d2c5b8bd4bddd3e2c232c1d2b4a3e086c1c82c1f072814d6c1cfb211c61`.
+
+- Hashed JS/CSS and `contour-vault.webp`: HTTP 200,
+  `public, max-age=31536000, immutable`.
+- `sw.js`: HTTP 200, `no-cache, no-store, must-revalidate`.
+- `site.webmanifest`: HTTP 200, `application/manifest+json`, one-hour cache.
+- All samples include `Permissions-Policy: camera=(), microphone=(), geolocation=()`,
+  `X-Content-Type-Options: nosniff`, and the configured referrer policy.
+
+## Required factory follow-up
+
+Register and enable the one-time `$39` production product for slug
+`local-records-continuity` with product URL
+`https://local-records-continuity.sociobot.in/` and matching return URL. Current
+evidence is unambiguous: `GET /api/v1/products` contains no matching slug and
+`GET /api/v1/products/local-records-continuity/checkout` returns HTTP 404 with
+`{"error":"enabled factory product","status":404}`. Re-run that checkout after
+registration and require a hosted-checkout redirect before release.
+
+The prior honest product boundaries are unchanged: verification proves archive
+authenticity and file integrity rather than a vendor-specific import; very large
+packs still buffer compressed data in memory; automatic scheduler installation
+uses cron on Linux/macOS while Windows users install the printed command in Task
+Scheduler.
