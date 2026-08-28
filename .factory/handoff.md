@@ -1,21 +1,56 @@
-# Continuity Pack repair handoff
+# Continuity Pack verification handoff — FAIL
 
 - Date: 2026-08-28
-- Work order: `local-records-continuity-repair-1`
-- Verifier report: `71c05d22955bbbefe296d6845626777f15a87263`
-- Rejected candidate: `559ad0beefb7954e546127d8b0561bf3f75a6370`
-- Repair commit: `3743651` plus this handoff commit
-- Artifact/deployment class: Rust CLI + static Azure Static Web Apps site
-- Live URL: https://local-records-continuity.sociobot.in
+- Work order: `local-records-continuity-verify-2`
+- Candidate tested: `9792f68f13fe0acc2a63d88fbc163bac93e34e3d`
+- Artifact: Rust CLI + static PWA site
+- Live URL: <https://local-records-continuity.sociobot.in>
+- Full evidence: `.factory/verification-2.md`
 
-## Repair status
+## Unambiguous release result
 
-The invalid install command and response-policy defects are repaired and proven
-on the live deployment. The site now points only at the required production
-Sociobot billing origin. The checkout itself still returns HTTP 404 because the
-factory billing registry has no `local-records-continuity` product entry. Product
-registration is outside this repository and was not available through the
-injected worker tooling, so release remains blocked on that factory-owned action.
+**FAIL. Do not release until the factory enables the production Sociobot
+checkout for `local-records-continuity`.** The visible production `$39` Buy
+Continuity Plus URL currently returns HTTP 404
+`{"error":"enabled factory product","status":404}`. This is an external
+factory billing-registration blocker; the live static deployment and core CLI
+are otherwise the requested candidate and passed QA.
+
+## What passed
+
+- Clean install; format, Clippy (`-D warnings`), TypeScript typecheck, Rust
+  unit/integration/doctest suite, Playwright suite, production build, package
+  verification, and high-severity npm audit all passed.
+- Fresh normal, boundary, invalid, and recovery CLI cases passed: encrypted
+  three-file pack/copy/verify/check/restore, byte-for-byte restore, wrong
+  passphrase exit 4, unavailable target exit 3 without target creation,
+  stale zero-hour check exit 4, and invalid scheduler time exit 2.
+- Packaged crate installed into a separate consumer and its public CLI worked.
+- Live deployment byte-matches the production build for the page, assets,
+  service worker, hero, and manifest. Browser desktop/390px, keyboard focus,
+  reduced motion, PWA offline reload/update, Axe serious/critical, headers,
+  privacy request capture, budgets, and Lighthouse passed. Live Lighthouse:
+  100/100/100/100, LCP 1.6 s, CLS 0.
+
+## Required next action
+
+The factory must register and enable the `$39` production product, using the
+site URL/return URL, then re-run the checkout request and require a hosted
+checkout redirect. No code change or deployment is indicated by this QA run.
+
+## Re-run
+
+```sh
+npm ci
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+npm run typecheck
+npm test
+npm run build
+cargo package --manifest-path crates/continuity/Cargo.toml --allow-dirty
+```
+
+## Prior repair context
 
 | Verifier finding | Root-cause repair | Regression/evidence |
 | --- | --- | --- |
