@@ -34,6 +34,23 @@ fn ci_mode_fails_clearly_without_passphrase() {
         .args(["--ci", "verify", "missing.cpack"])
         .assert()
         .failure()
-        .code(5)
+        .code(3)
         .stderr(predicate::str::contains("no passphrase available"));
+}
+
+#[test]
+fn unavailable_target_fails_loudly_for_scheduled_checks() {
+    Command::cargo_bin("continuity")
+        .unwrap()
+        .env("CONTINUITY_PASSPHRASE", "a long scheduled passphrase")
+        .args([
+            "--ci",
+            "check",
+            "--target",
+            "/definitely/not/a/mounted/target",
+        ])
+        .assert()
+        .failure()
+        .code(3)
+        .stderr(predicate::str::contains("target is unavailable"));
 }

@@ -57,8 +57,9 @@ continuity restore /media/offsite/backups/2026-08-28T120000Z.cpack \
 ```
 
 Install a scheduled dry-read with the OS scheduler. This command prints the
-entry by default; `--install` changes the current user's scheduler after showing
-the exact command:
+entry by default; `--install` changes the current user's crontab on Linux/macOS
+after showing the exact command. On Windows, add an equivalent `continuity --ci
+check ...` command to Task Scheduler:
 
 ```sh
 continuity schedule --target /media/offsite/backups --daily-at 03:15
@@ -99,8 +100,8 @@ Run `continuity <command> --help` for command-specific examples.
 ## Paid convenience tier
 
 The complete pack, verify, check, and restore safety path is free. Continuity
-Plus is a one-time purchase that adds multiple named profiles, retained JSON
-verification history, and shareable handoff summaries. It never gates core
+Plus is a one-time purchase that adds a multi-location configuration workbook,
+quarterly restore-drill worksheet, and staff handoff guide. It never gates core
 export, recovery, accessibility, or failure reporting. Purchase and license
 restoration are available on the product site; Sociobot/Dodo is the merchant of
 record.

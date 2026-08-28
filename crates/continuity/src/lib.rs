@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt,
     fs::{self, File},
     io::{Cursor, Read, Write},
     path::{Component, Path, PathBuf},
@@ -83,6 +84,16 @@ impl Error {
             code: 5,
             message: message.into(),
         }
+    }
+
+    #[doc(hidden)]
+    pub fn invalid(message: impl Into<String>) -> Self {
+        Self::config(message)
+    }
+
+    #[doc(hidden)]
+    pub fn unavailable(message: impl Into<String>) -> Self {
+        Self::missing(message)
     }
 }
 
@@ -192,6 +203,48 @@ pub struct RestoreResult {
     pub verified: bool,
 }
 
+impl fmt::Display for PackResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RECOVERY PACK READY\nTarget: {}\nFiles: {} ({} bytes)\nEncrypted: {} bytes\nSHA-256: {}\nVerified: yes",
+            self.target_pack.display(),
+            self.file_count,
+            self.source_bytes,
+            self.encrypted_bytes,
+            self.sha256
+        )
+    }
+}
+
+impl fmt::Display for VerifyResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RECOVERY PACK VERIFIED\nPack: {}\nBusiness: {}\nCreated: {}\nAge: {:.1} hours\nFiles: {} / {} match\nAuthenticated: yes\nSHA-256: {}",
+            self.pack.display(),
+            self.business_name,
+            self.created_at.to_rfc3339(),
+            self.age_hours,
+            self.file_count,
+            self.file_count,
+            self.sha256
+        )
+    }
+}
+
+impl fmt::Display for RestoreResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RECOVERY PACK RESTORED\nOutput: {}\nFiles: {} ({} bytes)\nChecksums: all match\nNext: test these files in a safe copy of your application",
+            self.output.display(),
+            self.file_count,
+            self.source_bytes
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Manifest {
     format_version: u8,
@@ -231,7 +284,7 @@ struct Receipt {
 /// Create, encrypt, copy, and immediately verify a recovery pack.
 pub fn create_pack(options: PackOptions<'_>) -> Result<PackResult, Error> {
     validate_passphrase(options.passphrase)?;
-    require_target(options.target)?;
+    require_writable_target(options.target)?;
     let base = options
         .config_path
         .parent()
@@ -274,10 +327,11 @@ pub fn create_pack(options: PackOptions<'_>) -> Result<PackResult, Error> {
     let stem = format!(
         "{}-{}",
         slug(&options.config.business_name),
-        created_at.format("%Y-%m-%dT%H%M%SZ")
+        created_at.format("%Y-%m-%dT%H%M%S%.9fZ")
     );
     let local_pack = output_dir.join(format!("{stem}.cpack"));
     atomic_write(&local_pack, &encrypted)?;
+    verify_pack(&local_pack, options.passphrase)?;
 
     let manifest_text = readable_manifest(
         &manifest,
@@ -654,6 +708,13 @@ fn verify_entries(manifest: &Manifest, actual: &BTreeMap<String, Vec<u8>>) -> Re
             )));
         }
     }
+    let actual_bytes: u64 = actual.values().map(|bytes| bytes.len() as u64).sum();
+    if manifest.source_bytes != actual_bytes {
+        return Err(Error::verify(format!(
+            "source byte total mismatch: manifest says {}, pack contains {}",
+            manifest.source_bytes, actual_bytes
+        )));
+    }
     Ok(())
 }
 
@@ -757,6 +818,11 @@ fn require_target(target: &Path) -> Result<(), Error> {
             target.display()
         )));
     }
+    Ok(())
+}
+
+fn require_writable_target(target: &Path) -> Result<(), Error> {
+    require_target(target)?;
     let probe = target.join(format!(".continuity-write-test-{}", std::process::id()));
     File::create(&probe)
         .and_then(|mut f| f.write_all(b"probe"))
@@ -786,6 +852,12 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), Error> {
 }
 
 fn copy_atomic(source: &Path, destination: &Path) -> Result<(), Error> {
+    if destination.exists() {
+        return Err(Error::config(format!(
+            "target file already exists; refusing to replace it: {}",
+            destination.display()
+        )));
+    }
     let bytes = fs::read(source)
         .map_err(|e| Error::missing(format!("could not read {}: {e}", source.display())))?;
     atomic_write(destination, &bytes)
@@ -867,14 +939,19 @@ fn slug(value: &str) -> String {
             dash = true;
         }
     }
-    result
+    let result = result
         .trim_end_matches('-')
         .to_owned()
         .chars()
         .take(48)
         .collect::<String>()
         .trim_end_matches('-')
-        .to_owned()
+        .to_owned();
+    if result.is_empty() {
+        "records".into()
+    } else {
+        result
+    }
 }
 
 fn sha256_bytes(bytes: &[u8]) -> String {

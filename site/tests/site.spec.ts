@@ -29,12 +29,29 @@ test("demo tabs support arrow keys and expose a transcript", async ({ page }) =>
 });
 
 test("license return is stored, stripped, and unlocks after verification", async ({ page }) => {
-  await page.route("https://api.sociobot.in/api/v1/products/local-records-continuity/verify?license=test-token", (route) => route.fulfill({ json: { valid: true, reason: "ok", expires_at: null } }));
+  let verificationCalls = 0;
+  await page.route("https://pilot-api.sociobot.in/api/v1/products/local-records-continuity/verify?license=test-token", (route) => {
+    verificationCalls += 1;
+    return route.fulfill({ json: { valid: true, reason: "ok", expires_at: null } });
+  });
   await page.goto("/?license=test-token#plus");
   await expect(page).toHaveURL(/\/#plus$/);
   await expect(page.locator("#plus-downloads")).toBeVisible();
   await expect(page.locator("#license-status")).toContainText("active");
   expect(await page.evaluate(() => localStorage.getItem("sb_license:local-records-continuity"))).toBe("test-token");
+  await page.reload();
+  await expect(page.locator("#plus-downloads")).toBeVisible();
+  expect(verificationCalls).toBe(1);
+});
+
+test("installed shell remains readable offline", async ({ page, context }) => {
+  await page.goto("/");
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await context.setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+  await expect(page.locator("#network-strip")).toBeVisible();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("h1")).toContainText("backup you can find");
 });
 
 test("legal pages and mobile layout remain usable", async ({ page }, testInfo) => {

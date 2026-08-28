@@ -132,6 +132,12 @@ struct Message<'a> {
     message: String,
 }
 
+impl std::fmt::Display for Message<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
     let json = cli.json;
@@ -152,18 +158,18 @@ fn run(cli: Cli) -> Result<(), Error> {
     match cli.command {
         Commands::Init { config, force } => {
             if config.exists() && !force {
-                return Err(Error::integration(format!(
+                return Err(Error::invalid(format!(
                     "{} already exists; use --force only if you intend to replace it",
                     config.display()
                 )));
             }
             if let Some(parent) = config.parent().filter(|p| !p.as_os_str().is_empty()) {
                 fs::create_dir_all(parent).map_err(|e| {
-                    Error::integration(format!("could not create {}: {e}", parent.display()))
+                    Error::unavailable(format!("could not create {}: {e}", parent.display()))
                 })?;
             }
             fs::write(&config, SAMPLE_CONFIG).map_err(|e| {
-                Error::integration(format!("could not write {}: {e}", config.display()))
+                Error::unavailable(format!("could not write {}: {e}", config.display()))
             })?;
             emit(cli.json, &Message { status: "ready", message: format!("wrote {}; edit the record paths, then run continuity pack --target <directory>", config.display()) })
         }
@@ -201,7 +207,7 @@ fn run(cli: Cli) -> Result<(), Error> {
     }
 }
 
-fn emit<T: Serialize + std::fmt::Debug>(json: bool, value: &T) -> Result<(), Error> {
+fn emit<T: Serialize + std::fmt::Display>(json: bool, value: &T) -> Result<(), Error> {
     if json {
         println!(
             "{}",
@@ -209,7 +215,7 @@ fn emit<T: Serialize + std::fmt::Debug>(json: bool, value: &T) -> Result<(), Err
                 .map_err(|e| Error::integration(format!("could not write JSON: {e}")))?
         );
     } else {
-        println!("{value:#?}");
+        println!("{value}");
     }
     Ok(())
 }
@@ -217,7 +223,7 @@ fn emit<T: Serialize + std::fmt::Debug>(json: bool, value: &T) -> Result<(), Err
 fn resolve_passphrase(file: Option<&Path>, ci: bool) -> Result<String, Error> {
     if let Some(path) = file {
         let value = fs::read_to_string(path).map_err(|e| {
-            Error::integration(format!(
+            Error::unavailable(format!(
                 "could not read passphrase file {}: {e}",
                 path.display()
             ))
@@ -227,15 +233,11 @@ fn resolve_passphrase(file: Option<&Path>, ci: bool) -> Result<String, Error> {
     if let Ok(value) = env::var("CONTINUITY_PASSPHRASE") {
         return clean_passphrase(value, "CONTINUITY_PASSPHRASE");
     }
-    if let Ok(value) = key_entry().and_then(|entry| {
-        entry
-            .get_password()
-            .map_err(|e| Error::integration(format!("could not read OS keychain: {e}")))
-    }) {
+    if let Ok(value) = keychain_get() {
         return clean_passphrase(value, "OS keychain");
     }
     if ci || !io::stdin().is_terminal() {
-        return Err(Error::integration("no passphrase available; use --passphrase-file, CONTINUITY_PASSPHRASE, or continuity key store"));
+        return Err(Error::unavailable("no passphrase available; use --passphrase-file, CONTINUITY_PASSPHRASE, or continuity key store"));
     }
     let value = rpassword::prompt_password("Pack passphrase: ")
         .map_err(|e| Error::integration(format!("could not read passphrase: {e}")))?;
@@ -245,16 +247,11 @@ fn resolve_passphrase(file: Option<&Path>, ci: bool) -> Result<String, Error> {
 fn clean_passphrase(value: String, source: &str) -> Result<String, Error> {
     let cleaned = value.trim_end_matches(['\r', '\n']).to_owned();
     if cleaned.is_empty() {
-        return Err(Error::integration(format!(
+        return Err(Error::unavailable(format!(
             "{source} contained an empty passphrase"
         )));
     }
     Ok(cleaned)
-}
-
-fn key_entry() -> Result<keyring::Entry, Error> {
-    keyring::Entry::new(KEYRING_SERVICE, KEYRING_USER)
-        .map_err(|e| Error::integration(format!("OS keychain is unavailable: {e}")))
 }
 
 fn key_command(command: KeyCommand, ci: bool, json: bool) -> Result<(), Error> {
@@ -267,7 +264,7 @@ fn key_command(command: KeyCommand, ci: bool, json: bool) -> Result<(), Error> {
                     .map_err(|e| Error::integration(format!("could not read stdin: {e}")))?;
             } else {
                 if ci || !io::stdin().is_terminal() {
-                    return Err(Error::integration(
+                    return Err(Error::invalid(
                         "use continuity key store --stdin in CI or a non-interactive shell",
                     ));
                 }
@@ -277,18 +274,14 @@ fn key_command(command: KeyCommand, ci: bool, json: bool) -> Result<(), Error> {
                     Error::integration(format!("could not confirm passphrase: {e}"))
                 })?;
                 if passphrase != confirm {
-                    return Err(Error::integration("passphrases did not match"));
+                    return Err(Error::invalid("passphrases did not match"));
                 }
             }
             let passphrase = clean_passphrase(passphrase, "stdin")?;
             if passphrase.chars().count() < 12 {
-                return Err(Error::integration(
-                    "passphrase must be at least 12 characters",
-                ));
+                return Err(Error::invalid("passphrase must be at least 12 characters"));
             }
-            key_entry()?.set_password(&passphrase).map_err(|e| {
-                Error::integration(format!("could not store passphrase in OS keychain: {e}"))
-            })?;
+            keychain_store(&passphrase)?;
             emit(
                 json,
                 &Message {
@@ -298,16 +291,14 @@ fn key_command(command: KeyCommand, ci: bool, json: bool) -> Result<(), Error> {
             )
         }
         KeyCommand::Status => {
-            let available = key_entry()?.get_password().is_ok();
+            let available = keychain_get().is_ok();
             emit(
                 json,
                 &serde_json::json!({"status": if available { "available" } else { "missing" }, "available": available}),
             )
         }
         KeyCommand::Forget => {
-            key_entry()?.delete_credential().map_err(|e| {
-                Error::integration(format!("could not remove keychain passphrase: {e}"))
-            })?;
+            keychain_delete()?;
             emit(
                 json,
                 &Message {
@@ -319,9 +310,215 @@ fn key_command(command: KeyCommand, ci: bool, json: bool) -> Result<(), Error> {
     }
 }
 
+#[cfg(target_os = "linux")]
+fn keychain_get() -> Result<String, Error> {
+    let output = Command::new("secret-tool")
+        .args([
+            "lookup",
+            "service",
+            KEYRING_SERVICE,
+            "account",
+            KEYRING_USER,
+        ])
+        .output()
+        .map_err(|e| {
+            Error::integration(format!(
+                "Linux Secret Service is unavailable (install secret-tool): {e}"
+            ))
+        })?;
+    if !output.status.success() || output.stdout.is_empty() {
+        return Err(Error::integration(
+            "no passphrase found in Linux Secret Service",
+        ));
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|_| Error::integration("Linux Secret Service returned invalid text"))
+}
+
+#[cfg(target_os = "linux")]
+fn keychain_store(passphrase: &str) -> Result<(), Error> {
+    let mut child = Command::new("secret-tool")
+        .args([
+            "store",
+            "--label=Continuity Pack",
+            "service",
+            KEYRING_SERVICE,
+            "account",
+            KEYRING_USER,
+        ])
+        .stdin(Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            Error::integration(format!(
+                "Linux Secret Service is unavailable (install secret-tool): {e}"
+            ))
+        })?;
+    child
+        .stdin
+        .as_mut()
+        .expect("piped stdin")
+        .write_all(passphrase.as_bytes())
+        .map_err(|e| {
+            Error::integration(format!(
+                "could not send passphrase to Linux Secret Service: {e}"
+            ))
+        })?;
+    let status = child
+        .wait()
+        .map_err(|e| Error::integration(format!("could not wait for Linux Secret Service: {e}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error::integration(
+            "Linux Secret Service rejected the passphrase",
+        ))
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn keychain_delete() -> Result<(), Error> {
+    let status = Command::new("secret-tool")
+        .args(["clear", "service", KEYRING_SERVICE, "account", KEYRING_USER])
+        .status()
+        .map_err(|e| {
+            Error::integration(format!(
+                "Linux Secret Service is unavailable (install secret-tool): {e}"
+            ))
+        })?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error::integration(
+            "could not remove the Linux Secret Service entry",
+        ))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn keychain_get() -> Result<String, Error> {
+    let output = Command::new("security")
+        .args([
+            "find-generic-password",
+            "-s",
+            KEYRING_SERVICE,
+            "-a",
+            KEYRING_USER,
+            "-w",
+        ])
+        .output()
+        .map_err(|e| Error::integration(format!("macOS Keychain is unavailable: {e}")))?;
+    if !output.status.success() || output.stdout.is_empty() {
+        return Err(Error::integration("no passphrase found in macOS Keychain"));
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|_| Error::integration("macOS Keychain returned invalid text"))
+}
+
+#[cfg(target_os = "macos")]
+fn keychain_store(passphrase: &str) -> Result<(), Error> {
+    let status = Command::new("sh")
+        .args(["-c", "security add-generic-password -U -s continuity-pack -a default -w \"$CONTINUITY_KEY_VALUE\""])
+        .env("CONTINUITY_KEY_VALUE", passphrase)
+        .status()
+        .map_err(|e| Error::integration(format!("macOS Keychain is unavailable: {e}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error::integration("macOS Keychain rejected the passphrase"))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn keychain_delete() -> Result<(), Error> {
+    let status = Command::new("security")
+        .args([
+            "delete-generic-password",
+            "-s",
+            KEYRING_SERVICE,
+            "-a",
+            KEYRING_USER,
+        ])
+        .status()
+        .map_err(|e| Error::integration(format!("macOS Keychain is unavailable: {e}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error::integration(
+            "could not remove the macOS Keychain entry",
+        ))
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn powershell(script: &str) -> Result<std::process::Output, Error> {
+    Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .output()
+        .map_err(|e| Error::integration(format!("Windows Credential Manager is unavailable: {e}")))
+}
+
+#[cfg(target_os = "windows")]
+fn keychain_get() -> Result<String, Error> {
+    let output = powershell("$v=New-Object Windows.Security.Credentials.PasswordVault;$c=$v.Retrieve('continuity-pack','default');$c.RetrievePassword();[Console]::Out.Write($c.Password)")?;
+    if !output.status.success() || output.stdout.is_empty() {
+        return Err(Error::integration(
+            "no passphrase found in Windows Credential Manager",
+        ));
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|_| Error::integration("Windows Credential Manager returned invalid text"))
+}
+
+#[cfg(target_os = "windows")]
+fn keychain_store(passphrase: &str) -> Result<(), Error> {
+    let status = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", "$v=New-Object Windows.Security.Credentials.PasswordVault;$c=New-Object Windows.Security.Credentials.PasswordCredential('continuity-pack','default',$env:CONTINUITY_KEY_VALUE);$v.Add($c)"])
+        .env("CONTINUITY_KEY_VALUE", passphrase)
+        .status()
+        .map_err(|e| Error::integration(format!("Windows Credential Manager is unavailable: {e}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error::integration(
+            "Windows Credential Manager rejected the passphrase",
+        ))
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn keychain_delete() -> Result<(), Error> {
+    let output = powershell("$v=New-Object Windows.Security.Credentials.PasswordVault;$c=$v.Retrieve('continuity-pack','default');$v.Remove($c)")?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(Error::integration(
+            "could not remove the Windows Credential Manager entry",
+        ))
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+fn keychain_get() -> Result<String, Error> {
+    Err(Error::integration(
+        "OS keychain is not supported on this platform",
+    ))
+}
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+fn keychain_store(_: &str) -> Result<(), Error> {
+    Err(Error::integration(
+        "OS keychain is not supported on this platform",
+    ))
+}
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+fn keychain_delete() -> Result<(), Error> {
+    Err(Error::integration(
+        "OS keychain is not supported on this platform",
+    ))
+}
+
 fn schedule(args: ScheduleArgs, json: bool) -> Result<(), Error> {
     if !args.target.is_dir() {
-        return Err(Error::integration(format!(
+        return Err(Error::unavailable(format!(
             "target must already exist before scheduling: {}",
             args.target.display()
         )));
@@ -387,18 +584,16 @@ fn schedule(args: ScheduleArgs, json: bool) -> Result<(), Error> {
 
 fn parse_time(value: &str) -> Result<(u8, u8), Error> {
     let Some((hour, minute)) = value.split_once(':') else {
-        return Err(Error::integration(
-            "--daily-at must use 24-hour HH:MM format",
-        ));
+        return Err(Error::invalid("--daily-at must use 24-hour HH:MM format"));
     };
     let hour: u8 = hour
         .parse()
-        .map_err(|_| Error::integration("--daily-at hour is invalid"))?;
+        .map_err(|_| Error::invalid("--daily-at hour is invalid"))?;
     let minute: u8 = minute
         .parse()
-        .map_err(|_| Error::integration("--daily-at minute is invalid"))?;
+        .map_err(|_| Error::invalid("--daily-at minute is invalid"))?;
     if hour > 23 || minute > 59 {
-        return Err(Error::integration("--daily-at must be a real 24-hour time"));
+        return Err(Error::invalid("--daily-at must be a real 24-hour time"));
     }
     Ok((hour, minute))
 }

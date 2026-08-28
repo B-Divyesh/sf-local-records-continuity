@@ -1,5 +1,6 @@
 const CACHE = "continuity-pack-shell-v1";
-const SHELL = ["/", "/privacy/", "/terms/", "/contour-vault.webp", "/mark.svg", "/site.webmanifest"];
+const GENERATED_ASSETS = [/* __PRECACHE_ASSETS__ */];
+const SHELL = ["/", "/privacy/", "/terms/", "/contour-vault.webp", "/mark.svg", "/site.webmanifest", ...GENERATED_ASSETS];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));

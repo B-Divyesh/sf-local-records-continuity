@@ -7,7 +7,7 @@
     "dev": "vite --config site/vite.config.ts",
     "build": "npm run build:cli && npm run build:site",
     "build:cli": "cargo build --release --workspace",
-    "build:site": "vite build --config site/vite.config.ts",
+    "build:site": "vite build --config site/vite.config.ts && node scripts/finalize-site.mjs",
     "preview:site": "vite preview --config site/vite.config.ts",
     "test": "cargo test --workspace && npm run test:site",
     "test:site": "npm run build:site && playwright test",

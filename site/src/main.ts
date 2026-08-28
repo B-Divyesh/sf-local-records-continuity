@@ -66,14 +66,18 @@ document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => 
 });
 
 const networkStrip = document.querySelector<HTMLElement>("#network-strip");
-const updateNetwork = (): void => { if (networkStrip) networkStrip.hidden = navigator.onLine; };
-window.addEventListener("online", updateNetwork);
-window.addEventListener("offline", updateNetwork);
+const updateNetwork = (online = navigator.onLine): void => {
+  if (networkStrip) networkStrip.hidden = online;
+  if (online) sessionStorage.removeItem("continuity-offline");
+  else sessionStorage.setItem("continuity-offline", "true");
+};
+window.addEventListener("online", () => updateNetwork(true));
+window.addEventListener("offline", () => updateNetwork(false));
 document.querySelector("#network-retry")?.addEventListener("click", () => window.location.reload());
-updateNetwork();
+updateNetwork(navigator.onLine && sessionStorage.getItem("continuity-offline") !== "true");
 
 const SLUG = "local-records-continuity";
-const API_BASE = "https://api.sociobot.in/api/v1";
+const API_BASE = import.meta.env.VITE_BILLING_API_BASE ?? "https://pilot-api.sociobot.in/api/v1";
 const LICENSE_KEY = `sb_license:${SLUG}`;
 const CACHE_KEY = `${LICENSE_KEY}:verdict`;
 const ONE_DAY = 86_400_000;
@@ -81,6 +85,8 @@ const licenseForm = document.querySelector<HTMLFormElement>("#license-form");
 const licenseInput = document.querySelector<HTMLInputElement>("#license-token");
 const licenseStatus = document.querySelector<HTMLElement>("#license-status");
 const downloads = document.querySelector<HTMLElement>("#plus-downloads");
+const buyLink = document.querySelector<HTMLAnchorElement>("#buy-plus");
+if (buyLink) buyLink.href = `${API_BASE}/products/${SLUG}/checkout`;
 
 interface VerdictCache { token: string; valid: boolean; checkedAt: number }
 
