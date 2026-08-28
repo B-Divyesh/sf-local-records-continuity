@@ -77,7 +77,7 @@ document.querySelector("#network-retry")?.addEventListener("click", () => window
 updateNetwork(navigator.onLine && sessionStorage.getItem("continuity-offline") !== "true");
 
 const SLUG = "local-records-continuity";
-const API_BASE = import.meta.env.VITE_BILLING_API_BASE ?? "https://pilot-api.sociobot.in/api/v1";
+const API_BASE = import.meta.env.VITE_BILLING_API_BASE ?? "https://api.sociobot.in/api/v1";
 const LICENSE_KEY = `sb_license:${SLUG}`;
 const CACHE_KEY = `${LICENSE_KEY}:verdict`;
 const ONE_DAY = 86_400_000;

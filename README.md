@@ -15,12 +15,13 @@ your application exports and periodically testing a real restore.
 Download a release binary for your platform, or build from source:
 
 ```sh
-cargo install --path crates/continuity
+cargo install --git https://github.com/B-Divyesh/sf-local-records-continuity continuity-pack --locked
 continuity --help
 ```
 
 Rust 1.85+ is required when building from source. The resulting executable is a
-single binary. Releases begin at `0.1.0`.
+single binary. From an existing checkout, `cargo install --path
+crates/continuity --locked` is equivalent. Releases begin at `0.1.0`.
 
 ## Usage
 
@@ -121,6 +122,8 @@ npm run build
 `npm run build` is the factory build command. It compiles the CLI in release
 mode, builds the static site, and places the deployable website at `dist/site/`
 with `index.html` at that root. `npm run build:site` builds only the site.
+Release builds use the production Sociobot API by default; explicitly set
+`VITE_BILLING_API_BASE=https://pilot-api.sociobot.in/api/v1` only for staging.
 
 ## Repository map
 

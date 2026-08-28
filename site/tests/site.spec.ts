@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { readFile } from "node:fs/promises";
 
 test("home has a complete accessible route with no console errors", async ({ page }) => {
   const errors: string[] = [];
@@ -30,7 +31,7 @@ test("demo tabs support arrow keys and expose a transcript", async ({ page }) =>
 
 test("license return is stored, stripped, and unlocks after verification", async ({ page }) => {
   let verificationCalls = 0;
-  await page.route("https://pilot-api.sociobot.in/api/v1/products/local-records-continuity/verify?license=test-token", (route) => {
+  await page.route("https://api.sociobot.in/api/v1/products/local-records-continuity/verify?license=test-token", (route) => {
     verificationCalls += 1;
     return route.fulfill({ json: { valid: true, reason: "ok", expires_at: null } });
   });
@@ -42,6 +43,32 @@ test("license return is stored, stripped, and unlocks after verification", async
   await page.reload();
   await expect(page.locator("#plus-downloads")).toBeVisible();
   expect(verificationCalls).toBe(1);
+});
+
+test("release install, billing, and response policy contracts are deployable", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Static release contract only needs one browser project.");
+  await page.goto("/#guide");
+
+  const install = "cargo install --git https://github.com/B-Divyesh/sf-local-records-continuity continuity-pack --locked";
+  await expect(page.getByLabel("Scrollable install command")).toHaveText(install);
+  await expect(page.locator(".copy-button").first()).toHaveAttribute("data-copy", install);
+  expect(install).not.toMatch(/--git\s+\S+\s+--path/);
+  await expect(page.getByRole("link", { name: "Buy Continuity Plus" })).toHaveAttribute(
+    "href",
+    "https://api.sociobot.in/api/v1/products/local-records-continuity/checkout"
+  );
+
+  const config = JSON.parse(await readFile("dist/site/staticwebapp.config.json", "utf8")) as {
+    routes: Array<{ route: string; headers?: Record<string, string> }>;
+    globalHeaders: Record<string, string>;
+    mimeTypes: Record<string, string>;
+  };
+  const route = (path: string) => config.routes.find((item) => item.route === path)?.headers ?? {};
+  expect(route("/assets/*")["Cache-Control"]).toContain("immutable");
+  expect(route("/contour-vault.webp")["Cache-Control"]).toContain("immutable");
+  expect(route("/sw.js")["Cache-Control"]).toBe("no-cache, no-store, must-revalidate");
+  expect(config.globalHeaders["Permissions-Policy"]).toContain("camera=()");
+  expect(config.mimeTypes[".webmanifest"]).toBe("application/manifest+json");
 });
 
 test("installed shell remains readable offline", async ({ page, context }) => {
