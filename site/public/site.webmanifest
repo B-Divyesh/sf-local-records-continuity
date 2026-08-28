@@ -1,0 +1,10 @@
+{
+  "name": "Continuity Pack",
+  "short_name": "Continuity",
+  "description": "A tested route back to your local business records.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3ecdd",
+  "theme_color": "#f3ecdd",
+  "icons": [{ "src": "/mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

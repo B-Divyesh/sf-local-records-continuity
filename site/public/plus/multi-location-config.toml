@@ -1,0 +1,21 @@
+# Continuity Plus — multi-location planning workbook
+# Copy each profile into its own folder as continuity.toml.
+
+# PROFILE: daily operating exports
+business_name = "YOUR BUSINESS — DAILY"
+output_dir = ".continuity/packs/daily"
+
+[[records]]
+label = "invoices"
+path = "exports/invoices.csv"
+required = true
+
+[[records]]
+label = "customers"
+path = "exports/customers.csv"
+required = true
+
+# Run to mounted target A:
+# continuity pack --config continuity-daily.toml --target /media/target-a
+# Run a second independent copy to target B:
+# continuity pack --config continuity-daily.toml --target /media/target-b

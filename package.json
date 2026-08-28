@@ -1,0 +1,23 @@
+{
+  "name": "local-records-continuity",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config site/vite.config.ts",
+    "build": "npm run build:cli && npm run build:site",
+    "build:cli": "cargo build --release --workspace",
+    "build:site": "vite build --config site/vite.config.ts",
+    "preview:site": "vite preview --config site/vite.config.ts",
+    "test": "cargo test --workspace && npm run test:site",
+    "test:site": "npm run build:site && playwright test",
+    "typecheck": "tsc --noEmit -p site/tsconfig.json"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@playwright/test": "1.58.2",
+    "@types/node": "22.12.0",
+    "typescript": "5.9.2",
+    "vite": "7.3.6"
+  }
+}
