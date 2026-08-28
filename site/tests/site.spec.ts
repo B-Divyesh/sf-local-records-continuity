@@ -45,6 +45,32 @@ test("license return is stored, stripped, and unlocks after verification", async
   expect(verificationCalls).toBe(1);
 });
 
+test("paid files require an active license and use the protected API", async ({ page }) => {
+  await page.route("https://api.sociobot.in/api/v1/products/local-records-continuity/verify?license=test-token", (route) =>
+    route.fulfill({ json: { valid: true, reason: "ok", expires_at: null } })
+  );
+  let authorization = "";
+  await page.route("**/api/plus-download?asset=quarterly-restore-drill.md", (route) => {
+    authorization = route.request().headers().authorization ?? "";
+    return route.fulfill({
+      status: 200,
+      headers: {
+        "Content-Type": "text/markdown; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="quarterly-restore-drill.md"'
+      },
+      body: "# Quarterly restore drill\n"
+    });
+  });
+
+  await page.goto("/?license=test-token#plus");
+  await expect(page.locator("#plus-downloads")).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download quarterly restore drill" }).click();
+  await download;
+  expect(authorization).toBe("Bearer test-token");
+  await expect(page.locator("#download-status")).toHaveText("Download ready.");
+});
+
 test("release install and response policy contracts are deployable", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "Static release contract only needs one browser project.");
   await page.goto("/#guide");
@@ -56,7 +82,7 @@ test("release install and response policy contracts are deployable", async ({ pa
   await expect(page.getByRole("button", { name: "Buy Continuity Plus" })).toBeVisible();
 
   const config = JSON.parse(await readFile("dist/site/staticwebapp.config.json", "utf8")) as {
-    routes: Array<{ route: string; headers?: Record<string, string> }>;
+    routes: Array<{ route: string; statusCode?: number; headers?: Record<string, string> }>;
     globalHeaders: Record<string, string>;
     mimeTypes: Record<string, string>;
   };
@@ -66,6 +92,8 @@ test("release install and response policy contracts are deployable", async ({ pa
   expect(route("/sw.js")["Cache-Control"]).toBe("no-cache, no-store, must-revalidate");
   expect(config.globalHeaders["Permissions-Policy"]).toContain("camera=()");
   expect(config.mimeTypes[".webmanifest"]).toBe("application/manifest+json");
+  expect(config.routes.find((item) => item.route === "/plus/*")?.statusCode).toBe(404);
+  await expect(page.locator("a[href^='/plus/']")).toHaveCount(0);
 });
 
 test("purchase does not send customers to an unregistered checkout", async ({ page }) => {
@@ -137,4 +165,15 @@ test("legal pages and mobile layout remain usable", async ({ page }, testInfo) =
     expect(overflow).toBe(false);
     await expect(page.getByRole("link", { name: "Build your first pack" })).toBeVisible();
   }
+});
+
+test("all visible links and controls meet the 44px target baseline", async ({ page }) => {
+  await page.goto("/#plus");
+  const undersized = await page.locator("a:visible, button:visible, input:visible").evaluateAll((elements) =>
+    elements.flatMap((element) => {
+      const { width, height } = element.getBoundingClientRect();
+      return width < 44 || height < 44 ? [{ text: element.textContent?.trim() || element.getAttribute("aria-label") || element.tagName, width, height }] : [];
+    })
+  );
+  expect(undersized).toEqual([]);
 });

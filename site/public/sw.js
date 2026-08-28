@@ -1,4 +1,4 @@
-const CACHE = "continuity-pack-shell-v1";
+const CACHE = "continuity-pack-shell-v2";
 const GENERATED_ASSETS = [/* __PRECACHE_ASSETS__ */];
 const SHELL = ["/", "/privacy/", "/terms/", "/contour-vault.webp", "/mark.svg", "/site.webmanifest", ...GENERATED_ASSETS];
 
@@ -11,7 +11,8 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET" || new URL(event.request.url).origin !== self.location.origin) return;
+  const url = new URL(event.request.url);
+  if (event.request.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/") || url.pathname.startsWith("/plus/")) return;
   event.respondWith(fetch(event.request).then((response) => {
     const copy = response.clone();
     caches.open(CACHE).then((cache) => cache.put(event.request, copy));

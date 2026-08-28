@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Select scheduled-check candidates by receipt creation time instead of the
+  business-name-prefixed filename, and fail closed on unusable metadata.
+- Move Continuity Plus files behind a live license-verifying managed API and
+  remove the public static copies from the site and offline cache.
+- Register the production $39 Continuity Plus product with Sociobot billing.
+- Expand every legal link target to at least 44 by 44 CSS pixels.
 - Correct the documented Git install command so Cargo can install the workspace binary.
 - Use the production Sociobot billing origin in release builds.
 - Add Azure Static Web Apps cache, security-header, and web manifest MIME policy.

@@ -39,7 +39,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .wordmark { display: inline-flex; align-items: center; gap: .65rem; min-height: 44px; font-weight: 700; text-decoration: none; letter-spacing: -.01em; }
 .wordmark svg { width: 32px; height: 32px; fill: none; stroke: var(--pine); stroke-width: 1.5; }
 .site-header nav, footer nav { display: flex; align-items: center; gap: clamp(1rem, 3vw, 2.25rem); }
-.site-header nav a, footer nav a { min-height: 44px; display: inline-flex; align-items: center; font-family: var(--mono); font-size: .78rem; text-decoration: none; }
+.site-header nav a, footer nav a { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: .78rem; text-decoration: none; }
 .site-header .nav-buy { border-bottom: 2px solid var(--ochre); }
 
 main { overflow: clip; }
@@ -119,7 +119,7 @@ code { font-family: var(--mono); font-size: .86em; }
 .price { color: var(--ochre); font-family: var(--mono); }
 .price strong { font-size: 1.5rem; }
 .merchant-note { color: var(--muted); font-size: .92rem; }
-.plus-actions > a:not(.button) { min-height: 44px; display: inline-flex; align-items: center; }
+.plus-actions > a:not(.button) { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
 .purchase-status { min-height: 1.5rem; margin: 1rem 0 0; color: var(--muted); font-size: .92rem; }
 .purchase-status[data-state="error"] { color: var(--danger); }
 .license-panel { align-self: start; padding-top: 1rem; }
@@ -131,7 +131,9 @@ code { font-family: var(--mono); font-size: .86em; }
 .license-status[data-state="error"] { color: var(--danger); }
 .plus-downloads { margin-top: 1.5rem; padding: 1.25rem; border-left: 3px solid var(--success); background: #edf5ee; }
 .plus-downloads h4 { margin: 0 0 .75rem; }
-.plus-downloads a { display: block; min-height: 38px; }
+.plus-downloads button { width: 100%; min-height: 44px; display: block; border: 0; border-bottom: 1px solid #b8caba; background: transparent; color: var(--pine); cursor: pointer; font-weight: 700; text-align: left; }
+.plus-downloads button:hover { background: rgba(23,97,62,.08); }
+.download-status { min-height: 1.5rem; margin: .75rem 0 0; color: var(--muted); font-size: .88rem; }
 
 .closing { padding: clamp(7rem, 13vw, 12rem) 0; text-align: center; }
 .closing h2 { max-width: 16ch; margin-inline: auto; }

@@ -9,7 +9,8 @@
     "build:cli": "cargo build --release --workspace",
     "build:site": "vite build --config site/vite.config.ts && node scripts/finalize-site.mjs",
     "preview:site": "vite preview --config site/vite.config.ts",
-    "test": "cargo test --workspace && npm run test:site",
+    "test": "cargo test --workspace && npm run test:api && npm run test:site",
+    "test:api": "node --test api/**/*.test.cjs",
     "test:site": "npm run build:site && playwright test",
     "typecheck": "tsc --noEmit -p site/tsconfig.json"
   },

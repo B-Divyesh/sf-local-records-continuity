@@ -85,6 +85,7 @@ const licenseForm = document.querySelector<HTMLFormElement>("#license-form");
 const licenseInput = document.querySelector<HTMLInputElement>("#license-token");
 const licenseStatus = document.querySelector<HTMLElement>("#license-status");
 const downloads = document.querySelector<HTMLElement>("#plus-downloads");
+const downloadStatus = document.querySelector<HTMLElement>("#download-status");
 const buyButton = document.querySelector<HTMLButtonElement>("#buy-plus");
 const purchaseStatus = document.querySelector<HTMLElement>("#purchase-status");
 const checkoutUrl = `${API_BASE}/products/${SLUG}/checkout`;
@@ -180,6 +181,45 @@ licenseForm?.addEventListener("submit", (event) => {
   void verifyLicense(token);
 });
 void loadLicense();
+
+document.querySelectorAll<HTMLButtonElement>("[data-plus-asset]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const token = storageGet(LICENSE_KEY);
+    const asset = button.dataset.plusAsset;
+    if (!token || !asset) {
+      setLicenseState(false, "Verify your license before downloading the field kit.", "error");
+      return;
+    }
+    button.disabled = true;
+    if (downloadStatus) downloadStatus.textContent = "Preparing protected download…";
+    try {
+      const response = await fetch(`/api/plus-download?asset=${encodeURIComponent(asset)}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          storageSet(CACHE_KEY, JSON.stringify({ token, valid: false, checkedAt: Date.now() } satisfies VerdictCache));
+          setLicenseState(false, "This license is no longer active. Check the token or purchase Continuity Plus.", "error");
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = asset;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      if (downloadStatus) downloadStatus.textContent = "Download ready.";
+    } catch {
+      if (downloadStatus && !downloadStatus.textContent?.includes("no longer active")) {
+        downloadStatus.textContent = "The protected download is unavailable. Check your connection and try again.";
+      }
+    } finally {
+      button.disabled = false;
+    }
+  });
+});
 
 buyButton?.addEventListener("click", async () => {
   buyButton.disabled = true;

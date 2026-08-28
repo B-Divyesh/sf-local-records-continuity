@@ -105,8 +105,11 @@ Plus is a one-time purchase that adds a multi-location configuration workbook,
 quarterly restore-drill worksheet, and staff handoff guide. It never gates core
 export, recovery, accessibility, or failure reporting. The site checks that
 Sociobot has enabled the product before sending a buyer to checkout, so an
-unregistered product cannot lead to a dead payment route. License restoration
-is available on the product site; Sociobot/Dodo is the merchant of record.
+unregistered product cannot lead to a dead payment route. Paid files are served
+by a same-origin managed endpoint only after a live Sociobot license check; they
+are not included in the public static build or offline cache. License
+restoration is available on the product site; Sociobot/Dodo is the merchant of
+record.
 
 ## Develop and verify
 
