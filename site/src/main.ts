@@ -85,10 +85,13 @@ const licenseForm = document.querySelector<HTMLFormElement>("#license-form");
 const licenseInput = document.querySelector<HTMLInputElement>("#license-token");
 const licenseStatus = document.querySelector<HTMLElement>("#license-status");
 const downloads = document.querySelector<HTMLElement>("#plus-downloads");
-const buyLink = document.querySelector<HTMLAnchorElement>("#buy-plus");
-if (buyLink) buyLink.href = `${API_BASE}/products/${SLUG}/checkout`;
+const buyButton = document.querySelector<HTMLButtonElement>("#buy-plus");
+const purchaseStatus = document.querySelector<HTMLElement>("#purchase-status");
+const checkoutUrl = `${API_BASE}/products/${SLUG}/checkout`;
 
 interface VerdictCache { token: string; valid: boolean; checkedAt: number }
+
+interface Product { slug: string; checkout_url?: string }
 
 function storageGet(key: string): string | null {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -101,6 +104,12 @@ function setLicenseState(valid: boolean, message: string, state: "active" | "err
   if (licenseStatus) {
     licenseStatus.textContent = message;
     licenseStatus.dataset.state = state;
+  }
+}
+function setPurchaseState(message: string, state: "error" | "neutral" = "neutral"): void {
+  if (purchaseStatus) {
+    purchaseStatus.textContent = message;
+    purchaseStatus.dataset.state = state;
   }
 }
 function cachedVerdict(): VerdictCache | null {
@@ -171,6 +180,26 @@ licenseForm?.addEventListener("submit", (event) => {
   void verifyLicense(token);
 });
 void loadLicense();
+
+buyButton?.addEventListener("click", async () => {
+  buyButton.disabled = true;
+  setPurchaseState("Checking whether checkout is ready…");
+  try {
+    const response = await fetch(`${API_BASE}/products`, { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json() as { data?: Product[] };
+    const product = payload.data?.find((item) => item.slug === SLUG && item.checkout_url === checkoutUrl);
+    if (!product) {
+      setPurchaseState("Continuity Plus purchases are not available yet. The free recovery CLI and guide are ready to use.", "error");
+      return;
+    }
+    window.location.assign(checkoutUrl);
+  } catch {
+    setPurchaseState("We could not check purchase availability. Please try again when you are online; the free recovery CLI remains available.", "error");
+  } finally {
+    buyButton.disabled = false;
+  }
+});
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
   window.addEventListener("load", () => { void navigator.serviceWorker.register("/sw.js"); });

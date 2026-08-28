@@ -45,7 +45,7 @@ test("license return is stored, stripped, and unlocks after verification", async
   expect(verificationCalls).toBe(1);
 });
 
-test("release install, billing, and response policy contracts are deployable", async ({ page }, testInfo) => {
+test("release install and response policy contracts are deployable", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "Static release contract only needs one browser project.");
   await page.goto("/#guide");
 
@@ -53,10 +53,7 @@ test("release install, billing, and response policy contracts are deployable", a
   await expect(page.getByLabel("Scrollable install command")).toHaveText(install);
   await expect(page.locator(".copy-button").first()).toHaveAttribute("data-copy", install);
   expect(install).not.toMatch(/--git\s+\S+\s+--path/);
-  await expect(page.getByRole("link", { name: "Buy Continuity Plus" })).toHaveAttribute(
-    "href",
-    "https://api.sociobot.in/api/v1/products/local-records-continuity/checkout"
-  );
+  await expect(page.getByRole("button", { name: "Buy Continuity Plus" })).toBeVisible();
 
   const config = JSON.parse(await readFile("dist/site/staticwebapp.config.json", "utf8")) as {
     routes: Array<{ route: string; headers?: Record<string, string> }>;
@@ -69,6 +66,51 @@ test("release install, billing, and response policy contracts are deployable", a
   expect(route("/sw.js")["Cache-Control"]).toBe("no-cache, no-store, must-revalidate");
   expect(config.globalHeaders["Permissions-Policy"]).toContain("camera=()");
   expect(config.mimeTypes[".webmanifest"]).toBe("application/manifest+json");
+});
+
+test("purchase does not send customers to an unregistered checkout", async ({ page }) => {
+  let checkoutRequests = 0;
+  await page.route("https://api.sociobot.in/api/v1/products", (route) => route.fulfill({
+    json: { data: [{ slug: "another-product", checkout_url: "https://example.test/checkout" }] }
+  }));
+  await page.route("https://api.sociobot.in/api/v1/products/local-records-continuity/checkout", (route) => {
+    checkoutRequests += 1;
+    return route.abort();
+  });
+
+  await page.goto("/#plus");
+  await page.getByRole("button", { name: "Buy Continuity Plus" }).click();
+  await expect(page.locator("#purchase-status")).toContainText("purchases are not available yet");
+  expect(checkoutRequests).toBe(0);
+});
+
+test("purchase navigates to the registered Sociobot checkout", async ({ page }) => {
+  const checkout = "https://api.sociobot.in/api/v1/products/local-records-continuity/checkout";
+  await page.route("https://api.sociobot.in/api/v1/products", (route) => route.fulfill({
+    json: { data: [{ slug: "local-records-continuity", checkout_url: checkout }] }
+  }));
+  await page.route(checkout, (route) => route.abort());
+
+  await page.goto("/#plus");
+  const checkoutRequest = page.waitForRequest(checkout);
+  await page.getByRole("button", { name: "Buy Continuity Plus" }).click();
+  await checkoutRequest;
+});
+
+test("purchase rejects a registry entry with the wrong checkout route", async ({ page }) => {
+  let checkoutRequests = 0;
+  await page.route("https://api.sociobot.in/api/v1/products", (route) => route.fulfill({
+    json: { data: [{ slug: "local-records-continuity", checkout_url: "https://example.test/checkout" }] }
+  }));
+  await page.route("https://api.sociobot.in/api/v1/products/local-records-continuity/checkout", (route) => {
+    checkoutRequests += 1;
+    return route.abort();
+  });
+
+  await page.goto("/#plus");
+  await page.getByRole("button", { name: "Buy Continuity Plus" }).click();
+  await expect(page.locator("#purchase-status")).toContainText("purchases are not available yet");
+  expect(checkoutRequests).toBe(0);
 });
 
 test("installed shell remains readable offline", async ({ page, context }) => {
