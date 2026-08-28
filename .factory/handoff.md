@@ -87,7 +87,7 @@ Verified locally:
 - `cargo package`: pass including clean package verification; output is under
   `target/package/continuity-pack-0.1.0.crate`. Do not publish from this worker.
 - `npm audit --audit-level=high`: zero vulnerabilities.
-- Asset budgets: initial home JS 5,107 bytes, shared helper JS 711 bytes, CSS
+- Asset budgets: initial home JS 5,202 bytes, shared helper JS 711 bytes, CSS
   12,447 bytes, no font payload, hero WebP 146,138 bytes.
 - Lighthouse mobile: Performance 100, Accessibility 100, Best Practices 100,
   SEO 100; LCP 1.8 s, CLS 0, total blocking time 0 ms, speed index 1.1 s.

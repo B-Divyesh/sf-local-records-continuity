@@ -146,10 +146,14 @@ async function loadLicense(): Promise<void> {
   if (!token) return;
   if (licenseInput) licenseInput.value = token;
   const cached = cachedVerdict();
-  if (cached?.token === token && cached.valid) {
-    setLicenseState(true, "Continuity Plus is active on this device.", "active");
-    if (!returned && Date.now() - cached.checkedAt < ONE_DAY) return;
-    await verifyLicense(token, true);
+  if (cached?.token === token) {
+    if (cached.valid) {
+      setLicenseState(true, "Continuity Plus is active on this device.", "active");
+    } else {
+      setLicenseState(false, "This license is no longer active. Check the token or purchase Continuity Plus.", "error");
+    }
+    if (Date.now() - cached.checkedAt < ONE_DAY) return;
+    await verifyLicense(token, cached.valid);
     return;
   }
   await verifyLicense(token);
