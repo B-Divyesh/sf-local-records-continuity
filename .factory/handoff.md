@@ -1,5 +1,26 @@
 # Continuity Pack v0.1.0 — handoff
 
+## Independent verification result: **FAIL**
+
+Verified on 2026-08-28 against candidate
+`559ad0beefb7954e546127d8b0561bf3f75a6370` and
+https://local-records-continuity.sociobot.in. The live root HTML is byte-for-byte
+identical to the freshly built candidate, so this is not a stale deployment.
+
+- **P1:** the visible Plus checkout links to `pilot-api.sociobot.in` and returns
+  HTTP 404. The production Sociobot checkout endpoint also returned HTTP 404.
+- **P1:** the live/copyable install command combines mutually exclusive Cargo
+  `--git` and `--path` arguments and fails immediately.
+- **P2:** live static assets and `sw.js` have only 30-second caching and omit
+  the shipped Permissions-Policy; immutable/no-cache header rules were not
+  applied.
+
+The encrypted local CLI workflow, test/build/type/lint checks, package consumer
+install, 390px/keyboard/reduced-motion/Axe checks, offline PWA reload, and asset
+budgets otherwise passed. See `.factory/verification.md` for exact commands,
+responses, metrics, and remediation. Do not release until the P1 defects are
+fixed and the live deployment is re-verified.
+
 Date: 2026-08-28
 
 Work order: `local-records-continuity-build-1`
