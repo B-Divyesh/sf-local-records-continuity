@@ -1,5 +1,7 @@
 use assert_cmd::Command;
+use continuity_pack::{create_pack, Config, PackOptions, RecordSource};
 use predicates::prelude::*;
+use std::{fs, path::PathBuf};
 
 #[test]
 fn help_is_actionable() {
@@ -53,4 +55,54 @@ fn unavailable_target_fails_loudly_for_scheduled_checks() {
         .failure()
         .code(3)
         .stderr(predicate::str::contains("target is unavailable"));
+}
+
+#[test]
+fn scheduled_json_check_fails_when_differently_prefixed_newest_pack_is_corrupt() {
+    let temp = tempfile::tempdir().unwrap();
+    let target = temp.path().join("mixed-target");
+    fs::create_dir(&target).unwrap();
+    fs::write(temp.path().join("records.csv"), "invoice,total\nINV-1,10\n").unwrap();
+    let config_path = temp.path().join("continuity.toml");
+    let mut config = Config {
+        business_name: "Zulu Older Business".into(),
+        output_dir: PathBuf::from("packs"),
+        records: vec![RecordSource {
+            label: "records".into(),
+            path: PathBuf::from("records.csv"),
+            required: true,
+        }],
+    };
+    let passphrase = "a long scheduled passphrase";
+    let older = create_pack(PackOptions {
+        config: &config,
+        config_path: &config_path,
+        target: &target,
+        passphrase,
+    })
+    .unwrap();
+    config.business_name = "Alpha Newer Business".into();
+    let newer = create_pack(PackOptions {
+        config: &config,
+        config_path: &config_path,
+        target: &target,
+        passphrase,
+    })
+    .unwrap();
+    assert!(older.target_pack.file_name().unwrap() > newer.target_pack.file_name().unwrap());
+    let mut bytes = fs::read(&newer.target_pack).unwrap();
+    bytes.pop();
+    fs::write(&newer.target_pack, bytes).unwrap();
+
+    Command::cargo_bin("continuity")
+        .unwrap()
+        .env("CONTINUITY_PASSPHRASE", passphrase)
+        .args(["--ci", "--json", "check", "--target"])
+        .arg(&target)
+        .args(["--max-age-hours", "26"])
+        .assert()
+        .failure()
+        .code(4)
+        .stdout(predicate::str::contains("\"code\":4"))
+        .stdout(predicate::str::contains("does not match its receipt"));
 }

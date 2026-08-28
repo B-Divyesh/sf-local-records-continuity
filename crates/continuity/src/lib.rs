@@ -484,14 +484,60 @@ pub fn check_target(
     max_age_hours: u64,
 ) -> Result<VerifyResult, Error> {
     require_target(target)?;
-    let mut packs: Vec<PathBuf> = fs::read_dir(target)
+    let packs: Vec<PathBuf> = fs::read_dir(target)
         .map_err(|e| Error::missing(format!("target is unavailable {}: {e}", target.display())))?
         .filter_map(Result::ok)
         .map(|e| e.path())
         .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("cpack"))
         .collect();
-    packs.sort();
-    let newest = packs.pop().ok_or_else(|| {
+    if packs.is_empty() {
+        return Err(Error::verify(format!(
+            "no .cpack files found in target {}; create a pack first",
+            target.display()
+        )));
+    }
+
+    // Business names are part of pack filenames, so lexical filename order is
+    // not chronological across configurations. Receipts carry the full UTC
+    // creation time. Fail closed if any candidate lacks usable metadata: an
+    // unattended check must never silently skip a possibly newer pack.
+    let mut newest: Option<(DateTime<Utc>, PathBuf)> = None;
+    for pack in packs {
+        let receipt_path = pack.with_extension("receipt.json");
+        let receipt_bytes = fs::read(&receipt_path).map_err(|e| {
+            Error::verify(format!(
+                "cannot determine newest pack: could not read receipt {}: {e}",
+                receipt_path.display()
+            ))
+        })?;
+        let receipt: Receipt = serde_json::from_slice(&receipt_bytes).map_err(|e| {
+            Error::verify(format!(
+                "cannot determine newest pack: malformed receipt {}: {e}",
+                receipt_path.display()
+            ))
+        })?;
+        let pack_name = pack.file_name().unwrap_or_default().to_string_lossy();
+        if receipt.pack_file != pack_name {
+            return Err(Error::verify(format!(
+                "cannot determine newest pack: receipt {} names a different pack",
+                receipt_path.display()
+            )));
+        }
+        if receipt.created_at > Utc::now() + chrono::Duration::minutes(5) {
+            return Err(Error::verify(format!(
+                "cannot determine newest pack: receipt {} has a future creation time",
+                receipt_path.display()
+            )));
+        }
+        let replace = newest.as_ref().is_none_or(|(created_at, current)| {
+            receipt.created_at > *created_at
+                || (receipt.created_at == *created_at && pack > *current)
+        });
+        if replace {
+            newest = Some((receipt.created_at, pack));
+        }
+    }
+    let newest = newest.map(|(_, path)| path).ok_or_else(|| {
         Error::verify(format!(
             "no .cpack files found in target {}; create a pack first",
             target.display()
@@ -1059,6 +1105,58 @@ mod tests {
         .unwrap_err();
         assert_eq!(error.exit_code(), 3);
         assert!(!target.exists());
+    }
+
+    #[test]
+    fn check_uses_receipt_time_across_business_names_and_fails_on_corrupt_newest() {
+        let (temp, config_path, mut config) = fixture();
+        let target = temp.path().join("target");
+        fs::create_dir(&target).unwrap();
+
+        config.business_name = "Zulu Older Business".into();
+        let older = create_pack(PackOptions {
+            config: &config,
+            config_path: &config_path,
+            target: &target,
+            passphrase: "a very long test passphrase",
+        })
+        .unwrap();
+        config.business_name = "Alpha Newer Business".into();
+        let newer = create_pack(PackOptions {
+            config: &config,
+            config_path: &config_path,
+            target: &target,
+            passphrase: "a very long test passphrase",
+        })
+        .unwrap();
+        assert!(older.target_pack.file_name().unwrap() > newer.target_pack.file_name().unwrap());
+
+        let mut bytes = fs::read(&newer.target_pack).unwrap();
+        bytes.pop();
+        fs::write(&newer.target_pack, bytes).unwrap();
+
+        let error = check_target(&target, "a very long test passphrase", 26).unwrap_err();
+        assert_eq!(error.exit_code(), 4);
+        assert!(error.to_string().contains("does not match its receipt"));
+    }
+
+    #[test]
+    fn check_fails_closed_when_a_pack_receipt_is_missing() {
+        let (temp, config_path, config) = fixture();
+        let target = temp.path().join("target");
+        fs::create_dir(&target).unwrap();
+        let packed = create_pack(PackOptions {
+            config: &config,
+            config_path: &config_path,
+            target: &target,
+            passphrase: "a very long test passphrase",
+        })
+        .unwrap();
+        fs::remove_file(packed.target_receipt).unwrap();
+
+        let error = check_target(&target, "a very long test passphrase", 26).unwrap_err();
+        assert_eq!(error.exit_code(), 4);
+        assert!(error.to_string().contains("cannot determine newest pack"));
     }
 
     #[test]
