@@ -6,11 +6,14 @@ function context() {
   return { log: { warn() {} }, res: undefined };
 }
 
-test("rejects direct downloads without a bearer license", async () => {
-  const ctx = context();
-  await plusDownload(ctx, { query: { asset: "quarterly-restore-drill.md" }, headers: {} });
-  assert.equal(ctx.res.status, 401);
-  assert.equal(ctx.res.headers["Cache-Control"], "no-store");
+test("rejects every advertised download without a bearer license", async () => {
+  for (const [asset, paidContent] of Object.entries(plusDownload.ASSETS)) {
+    const ctx = context();
+    await plusDownload(ctx, { query: { asset }, headers: {} });
+    assert.equal(ctx.res.status, 401, asset);
+    assert.equal(ctx.res.headers["Cache-Control"], "no-store", asset);
+    assert.doesNotMatch(JSON.stringify(ctx.res.body), new RegExp(paidContent.body.slice(0, 24)), asset);
+  }
 });
 
 test("rejects an invalid license without returning paid content", async (t) => {

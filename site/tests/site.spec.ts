@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 
 test("home has a complete accessible route with no console errors", async ({ page }) => {
   const errors: string[] = [];
@@ -94,6 +94,9 @@ test("release install and response policy contracts are deployable", async ({ pa
   expect(config.mimeTypes[".webmanifest"]).toBe("application/manifest+json");
   expect(config.routes.find((item) => item.route === "/plus/*")?.statusCode).toBe(404);
   await expect(page.locator("a[href^='/plus/']")).toHaveCount(0);
+  for (const asset of ["multi-location-config.toml", "quarterly-restore-drill.md", "team-handoff-checklist.md"]) {
+    await expect(access(`dist/site/plus/${asset}`)).rejects.toThrow();
+  }
 });
 
 test("purchase does not send customers to an unregistered checkout", async ({ page }) => {
