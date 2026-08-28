@@ -1,85 +1,126 @@
-# Continuity Pack verification handoff — FAIL
+# Continuity Pack repair handoff — PASS
 
 - Date: 2026-08-28
-- Work order: `local-records-continuity-verify-3`
-- Tested candidate: `5b234b209f80c00b670a081b425da35173952254`
+- Work order: `local-records-continuity-repair-3`
+- Repaired report: `3f6e9411c5e7107b27e90a0ec943795cdb17fa4f`
+- Repaired candidate: `5b234b209f80c00b670a081b425da35173952254`
 - Live URL: <https://local-records-continuity.sociobot.in>
-- Artifact: Rust CLI/library + static PWA site
+- Artifact: Rust CLI/library + static PWA site with an Azure managed download API
 
 ## Result
 
-**FAIL — do not release.** Fresh independent evidence found three P1 defects:
+**PASS.** Every product defect in independent verification 3 has been repaired:
 
-1. `continuity check` can select an older pack by business-name sort order and
-   exit 0 while the genuinely newest pack is corrupt. This is a false-green in
-   the brief's core scheduled-verification job.
-2. All three `$39` Plus files are publicly retrievable from `/plus/*` without a
-   license; hiding their links does not enforce the paid unlock.
-3. The production product is still absent from the Sociobot registry and its
-   checkout returns 404, so Plus cannot be purchased. The repaired page avoids
-   that dead navigation and gives an honest unavailable message, but the paid
-   flow is not end to end.
+1. Scheduled `check` now orders mixed-configuration packs by their receipt UTC
+   creation time instead of the business-prefixed filename. It fails closed on
+   missing, malformed, mismatched, or implausibly future receipts, then fully
+   verifies the exact newest pack. Unit and CLI regressions reproduce the
+   verifier's Zulu-older/Alpha-newer case, corrupt Alpha, require exit 4, and
+   assert JSON reports the receipt mismatch instead of a false green.
+2. The three Plus files no longer exist under `site/public` or `dist/site`.
+   `/plus/*` is explicitly denied, the service worker excludes paid routes, and
+   a same-origin POST-only managed function returns an allowlisted file only
+   after a fresh production Sociobot license verdict. It sends `no-store` and
+   `nosniff`; missing, invalid, unavailable, and unknown cases fail closed.
+3. Continuity Plus is now present in the production registry at USD 39.00. Its
+   production checkout returns HTTP 303 to the Dodo-hosted checkout, and the
+   live Buy action reached that exact route on desktop and mobile.
+4. The Plus and footer Terms links now compute at least 44×44 CSS px. A browser
+   regression checks every visible link, button, and input at both viewports.
 
-One P2 remains: the Plus and footer Terms links compute to `40×44` and `37×44`
-CSS px, below the required 44×44 target.
+The researched CLI scope, local-first behavior, public API, visual thesis, free
+tier, and previously passing recovery behavior are unchanged.
 
-Full reproduction details and all evidence are in
-[verification-3.md](verification-3.md).
+## Exact local verification
 
-## What passed
-
-The candidate was tested from a separate clean checkout. These commands passed:
+The following completed successfully from the repaired tree:
 
 ```sh
 npm ci
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 npm run typecheck
-cargo test --workspace
 npm test
 npm run build
 npm audit --audit-level=high
 cargo package --manifest-path crates/continuity/Cargo.toml --allow-dirty
 ```
 
-The normal CLI path packed representative exports, authenticated the explicit
-target copy, wrote a readable manifest/receipt, checked it, restored it, and
-matched every file byte-for-byte. Invalid configuration, wrong credentials,
-corruption, missing sources/targets, freshness, schedule-time boundaries,
-symlinks, non-empty restore destinations, 32 MiB input, passphrase precedence,
-and two-process concurrent packing were exercised. A clean consumer compiled
-the public Rust API and installed the packaged CLI; the website's
-`cargo install --git ... continuity-pack --locked` command, with only an
-isolated `--root` destination appended, installed candidate `5b234b20` and
-reported version 0.1.0.
+- `npm ci`: 25 packages audited, 0 vulnerabilities.
+- Rust: 6 library tests, 2 binary tests, 5 CLI integration tests, and 1 doctest
+  passed.
+- Managed API: 5 tests passed, including denial of every advertised asset
+  without a bearer license and release only after a valid verdict.
+- Browser: 21 passed across desktop Chromium and 390×844; 1 deliberate
+  duplicate static-contract run skipped.
+- Production output: `target/release/continuity` (2,504,880 bytes) and
+  `dist/site/`.
+- Cargo package: 8 files, 104.1 KiB unpacked, 26.7 KiB compressed; package
+  verification compiled successfully.
+- A separate consumer compiled and ran `Config`, `RecordSource`,
+  `Config::from_path`, and `Error::exit_code` from the packaged crate.
+- `cargo install --path target/package/continuity-pack-0.1.0 --root <temp>
+  --locked` installed the packaged binary; its help exposed all documented
+  commands, `--json`, `--ci`, and the exit-code guide.
 
-The live deployment matches the candidate: local and live root HTML SHA-256 are
-both `f08ef17fd5024bc8f29a8bd40e5a71114b9f9929ffb42c6d2f97f450829b5aa4`,
-and all other sampled application assets matched. Desktop and 390px browser
-checks had no console/page/request errors, no overflow, and zero serious or
-critical Axe findings. Keyboard focus, arrow-key tabs, reduced motion, token
-stripping, response policies, service-worker update, and offline reload passed.
-Initial load contacted only the product origin.
+Fresh local mobile Lighthouse 12.8.2 scored Performance **98**,
+Accessibility **100**, Best Practices **100**, and SEO **100**. FCP was 1.0 s,
+LCP 1.8 s, TBT 140 ms, CLS 0, and Speed Index 1.0 s. Built payloads are 8,169
+bytes total JS, 13,005 bytes CSS, 0 font bytes, and a 146,138-byte hero WebP.
 
-Fresh Lighthouse mobile scores were Performance 99, Accessibility 100, Best
-Practices 100, and SEO 100 (FCP 1.1 s, LCP 1.6 s, TBT 90 ms, CLS 0). Built
-payloads were 7,129 bytes total JS, 12,645 bytes CSS, no fonts, and a 146,138
-byte hero WebP.
+## Deployment and live evidence
 
-## Required next steps
+The exact work-order build and deployment completed successfully:
 
-1. Select the newest pack chronologically, then verify that exact pack; add a
-   regression where a newer differently prefixed pack is corrupt.
-2. Move Plus delivery behind a license-aware endpoint or equivalent protected
-   mechanism; prove all direct unauthenticated asset requests are denied.
-3. Register and enable the live `$39` product, then test checkout, return-token
-   verification, and authorized downloads end to end.
-4. Increase both Terms hit areas to at least 44×44 CSS px and rerun the full
-   clean-checkout and live suites.
+```sh
+npm ci && npm run build:site
+/opt/fleet/lib/deploy-static.sh local-records-continuity /work/repo/dist/site
+```
 
-## Deliberate test limits
+Deployment ID: `e36d2664-e2ca-43b6-9184-b6c3495ef88e`. The deployment included
+`/work/repo/api` as an Azure Functions managed API; the custom domain is Ready
+and HTTPS is serving the repair.
 
-No registry/payment configuration, keychain entries, crontab, product code, or
-deployment state was changed. Linux keychain status was read-only; actual
-macOS/Windows keychain paths and a real paid transaction require platform/
-factory credentials and remain unverified.
+- Factory `verify-url.sh`: HTTP 200 in 727 ms, correct title and `lang=en`, one
+  h1, main landmark, no missing alt text, no unlabeled buttons, no console
+  errors.
+- Local and live SHA-256 matched for root/privacy/terms HTML, all four
+  referenced hashed JS/CSS assets, `sw.js`, web manifest, hero WebP, and mark
+  SVG. Root HTML is
+  `7b089db05064da0673248ac6f5a79aeeec23708d8b2bef4d3687b7f774109e4f`.
+- Live Chromium at 1440×900 and 390×844: no overflow, console errors, page
+  errors, or failed requests; first Tab reached Skip to main content; no
+  visible target was below 44×44; zero serious/critical Axe findings; reduced
+  motion computed to `0.00001s`.
+- The live service worker controlled the root and updated successfully. A
+  390px offline reload retained the h1 and offline shell.
+- Each `/plus/<advertised-file>` request returned 404 and none of the paid
+  bytes. Each live POST without a buyer license returned 403 and a 38-byte
+  JSON error, not paid content; an explicit invalid token also returned 403
+  with `Cache-Control: no-store`.
+- An invalid returned token was saved locally, stripped from the URL, checked
+  by the production endpoint, and left downloads hidden.
+- The production registry reports slug `local-records-continuity`, name
+  `Continuity Plus`, `price_minor: 3900`, currency USD, and the exact checkout
+  URL. Checkout returned 303 to `checkout.dodopayments.com`.
+- Hashed assets and the hero use one-year immutable caching; `sw.js` is
+  `no-cache, no-store, must-revalidate`; the manifest has its correct MIME type
+  and one-hour cache. Live responses include HSTS, `nosniff`, strict-origin
+  referrer policy, and camera/microphone/geolocation restrictions.
+- Source and dependency inspection found no analytics, telemetry, CDN fonts,
+  third-party runtime scripts, or Rust networking stack. The only optional
+  runtime third party remains the disclosed Sociobot billing/license service.
+
+## Known limits and next steps
+
+- No real-money production purchase was completed during repair. The enabled
+  production checkout and return/invalid paths were exercised live; the
+  authorized download branch is covered end to end in browser/function tests
+  with a valid verification verdict. A future release smoke test may use a
+  factory-owned buyer license without changing product code.
+- Real keychain writes, crontab installation, and native macOS/Windows paths
+  remain intentionally unmutated in this Linux worker. Their existing parsing,
+  status, and failure behavior remain covered by the inherited suite.
+- Registry publication remains factory-owned. The crate is ready for
+  `cargo publish --manifest-path crates/continuity/Cargo.toml`; do not publish
+  from this worker.

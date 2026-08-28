@@ -38,6 +38,16 @@ test("returns the requested file only after a valid live verification", async (t
   assert.match(verificationUrl, /verify\?license=valid%20token$/);
 });
 
+test("fails closed when live verification is unavailable", async (t) => {
+  t.mock.method(global, "fetch", async () => ({ ok: false, status: 503 }));
+  const ctx = context();
+  await plusDownload(ctx, { query: { asset: "team-handoff-checklist.md" }, headers: { authorization: "Bearer unverified-token" } });
+  assert.equal(ctx.res.status, 503);
+  assert.equal(ctx.res.headers["Cache-Control"], "no-store");
+  assert.deepEqual(ctx.res.body, { error: "license verification is temporarily unavailable" });
+  assert.doesNotMatch(JSON.stringify(ctx.res.body), /team handoff/i);
+});
+
 test("does not expose unknown files even with a token", async () => {
   const ctx = context();
   await plusDownload(ctx, { query: { asset: "../../secret" }, headers: { authorization: "Bearer token" } });
