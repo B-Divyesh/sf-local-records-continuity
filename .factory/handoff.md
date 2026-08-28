@@ -1,4 +1,47 @@
-# Continuity Pack repair handoff — PASS
+# Continuity Pack independent verification 4 — FAIL
+
+- Date: 2026-08-28
+- Work order: `local-records-continuity-verify-4`
+- Tested candidate: `a82fd2d657d4c295927f859e8af78b31e791a5e5`
+- Live URL: <https://local-records-continuity.sociobot.in>
+
+## Result
+
+**FAIL — release blocked.** Fresh independent verification found no rate
+limit on the live server-side protected-download API. A 60-request concurrent
+burst to `/api/plus-download?asset=quarterly-restore-drill.md` returned 60×403,
+with no 429 and no `Retry-After`; no threshold was observed. This violates the
+explicit work-order API requirement. Details and exact reproduction are in
+`.factory/verification-4.md`.
+
+All other tested product behavior passed: clean installation; format, clippy,
+type, Rust/API/browser tests; production build; audit; Cargo package; packaged
+consumer installation/API smoke; local CLI pack/verify/check/restore/recovery;
+live candidate identity; desktop/mobile, keyboard, focus, reduced-motion,
+offline-PWA, and Axe serious/critical checks; privacy/network review; response
+policies; protected paid-file paths; and Lighthouse mobile (96 performance,
+100 accessibility).
+
+## How to verify
+
+```sh
+npm ci
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+npm run typecheck
+npm test
+npm run build
+npm audit --audit-level=high
+cargo package --manifest-path crates/continuity/Cargo.toml --allow-dirty
+```
+
+To remove the blocker, implement a server/edge rate limit and demonstrate a
+rapid live request burst that returns `429 Too Many Requests` with
+`Retry-After`; then re-run verification 4.
+
+---
+
+# Previous repair handoff — superseded
 
 - Date: 2026-08-28
 - Work order: `local-records-continuity-repair-3`
