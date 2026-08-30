@@ -104,7 +104,7 @@ enum Commands {
         #[arg(long)]
         output: PathBuf,
     },
-    /// Print or install a daily scheduled dry-read.
+    /// Print a daily scheduled check entry for review.
     Schedule(ScheduleArgs),
     /// Store, inspect, or remove the default passphrase in the OS keychain.
     #[command(subcommand)]
@@ -120,8 +120,7 @@ struct ScheduleArgs {
     daily_at: String,
     #[arg(long, default_value_t = 26)]
     max_age_hours: u64,
-    /// Install into the current user's crontab (Linux/macOS).
-    #[arg(long)]
+    #[arg(long, hide = true)]
     install: bool,
 }
 
@@ -661,7 +660,7 @@ fn schedule(args: ScheduleArgs, json: bool) -> Result<(), Error> {
         ))
     })?;
     let cron = format!(
-        "{minute} {hour} * * * {} --ci check --target {} --max-age-hours {} # continuity-pack-dry-read",
+        "{minute} {hour} * * * {} --ci check --target {} --max-age-hours {} # continuity-pack-scheduled-check",
         shell_quote(&executable), shell_quote(&target), args.max_age_hours
     );
     if args.install {
@@ -681,7 +680,7 @@ fn schedule(args: ScheduleArgs, json: bool) -> Result<(), Error> {
             };
             let mut lines: Vec<&str> = existing_text
                 .lines()
-                .filter(|line| !line.contains("# continuity-pack-dry-read"))
+                .filter(|line| !line.contains("# continuity-pack-dry-read") && !line.contains("# continuity-pack-scheduled-check"))
                 .collect();
             lines.push(&cron);
             let new_table = format!("{}\n", lines.join("\n"));

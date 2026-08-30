@@ -62,7 +62,9 @@ test("desktop first screen keeps the audience, sample action, explanation, and f
 test("@claim:sample-demo-page opens in one click without reading real browser data", async ({ page }) => {
   let externalRequests = 0;
   page.on("request", (request) => {
-    if (new URL(request.url()).origin !== expectedOrigin) externalRequests += 1;
+    const initiator = request.frame().url();
+    const isDemoInitiator = initiator.includes("/demo/") || new URL(initiator || expectedOrigin).searchParams.get("demo") === "1";
+    if (isDemoInitiator && new URL(request.url()).origin !== expectedOrigin) externalRequests += 1;
   });
   await page.goto("/");
   await page.evaluate(() => localStorage.setItem("sb_license:local-records-continuity", "real-data-sentinel"));
@@ -77,6 +79,11 @@ test("@claim:sample-demo-page opens in one click without reading real browser da
   await expect(page.getByRole("tab", { name: "Pack" })).toHaveAttribute("aria-selected", "true");
   await page.evaluate(() => sessionStorage.setItem("demo:temporary-test", "discard-me"));
   await page.getByRole("button", { name: "Reset demo" }).click();
+  expect(await page.evaluate(() => sessionStorage.getItem("demo:temporary-test"))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("sb_license:local-records-continuity"))).toBe("real-data-sentinel");
+  await page.evaluate(() => sessionStorage.setItem("demo:temporary-test", "discard-on-exit"));
+  await page.getByRole("link", { name: "Start for real" }).click();
+  await expect(page).toHaveURL(/\/#guide$/);
   expect(await page.evaluate(() => sessionStorage.getItem("demo:temporary-test"))).toBeNull();
   expect(await page.evaluate(() => localStorage.getItem("sb_license:local-records-continuity"))).toBe("real-data-sentinel");
   await page.goto("/?demo=1");

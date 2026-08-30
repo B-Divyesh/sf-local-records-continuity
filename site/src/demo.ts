@@ -51,18 +51,24 @@ if (tabs[0]) selectDemo(tabs[0]);
 // the real app's persisted state or license namespace.
 setUpPwa({ offlineStateKey: "demo:continuity-offline" });
 
-document.querySelector("#reset-demo")?.addEventListener("click", () => {
-  for (const storage of [localStorage, sessionStorage]) {
-    for (let index = storage.length - 1; index >= 0; index -= 1) {
-      const key = storage.key(index);
-      if (key?.startsWith("demo:")) storage.removeItem(key);
+function clearDemoStorage(): void {
+  try {
+    for (const storage of [localStorage, sessionStorage]) {
+      for (let index = storage.length - 1; index >= 0; index -= 1) {
+        const key = storage.key(index);
+        if (key?.startsWith("demo:")) storage.removeItem(key);
+      }
     }
-  }
+  } catch { /* Demo still works when browser storage is unavailable. */ }
+}
+
+document.querySelector("#reset-demo")?.addEventListener("click", () => {
+  clearDemoStorage();
   if (tabs[0]) selectDemo(tabs[0], true);
 });
 
 document.querySelector<HTMLAnchorElement>(".demo-banner a")?.addEventListener("click", () => {
-  try { sessionStorage.removeItem("demo:continuity-offline"); } catch { /* Storage may be unavailable. */ }
+  clearDemoStorage();
 });
 
 const copyStatus = document.querySelector<HTMLElement>("#copy-status");
