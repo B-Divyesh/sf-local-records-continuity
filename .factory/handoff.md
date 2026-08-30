@@ -1,169 +1,80 @@
-# Continuity Pack independent verification 4 — FAIL
+# Continuity Pack repair handoff — PASS
 
-- Date: 2026-08-28
-- Work order: `local-records-continuity-verify-4`
-- Tested candidate: `a82fd2d657d4c295927f859e8af78b31e791a5e5`
+- Date: 2026-08-30
+- Work order: `local-records-continuity-repair-4`
+- Repaired verification: `.factory/verification-4.md` for candidate `a82fd2d657d4c295927f859e8af78b31e791a5e5`
+- Repaired code commit: `e075e94` (`fix(api): key limiter by normalized Azure client IP`)
 - Live URL: <https://local-records-continuity.sociobot.in>
+- Deployment: Azure Static Web Apps production deployment `df75dfba-47c9-48d4-9852-c3f0ebfbed83`
 
 ## Result
 
-**FAIL — release blocked.** Fresh independent verification found no rate
-limit on the live server-side protected-download API. A 60-request concurrent
-burst to `/api/plus-download?asset=quarterly-restore-drill.md` returned 60×403,
-with no 429 and no `Retry-After`; no threshold was observed. This violates the
-explicit work-order API requirement. Details and exact reproduction are in
-`.factory/verification-4.md`.
+**PASS.** The release-blocking P1 finding is repaired. `POST /api/plus-download` now enforces a 20-request, 60-second client window before it can call Sociobot license verification. A throttled request returns `429 Too Many Requests`, `Retry-After`, `Cache-Control: no-store`, `nosniff`, and `RateLimit-Policy: 20;w=60`.
 
-All other tested product behavior passed: clean installation; format, clippy,
-type, Rust/API/browser tests; production build; audit; Cargo package; packaged
-consumer installation/API smoke; local CLI pack/verify/check/restore/recovery;
-live candidate identity; desktop/mobile, keyboard, focus, reduced-motion,
-offline-PWA, and Axe serious/critical checks; privacy/network review; response
-policies; protected paid-file paths; and Lighthouse mobile (96 performance,
-100 accessibility).
+The first implementation used JavaScript module memory. Live investigation showed the managed API uses isolated workers, so that state did not survive the verifier's burst. The final implementation uses a short-lived, lock-protected shared state file. It stores only a SHA-256 hash of the normalized Azure client address, removes entries after one minute, caps the map at 10,000 entries, and fails closed with a one-second retry response if the limiter store is busy. The privacy page explains this minimal security processing.
 
-## How to verify
+The browser now states the exact retry delay when a protected download returns `429`. The researched local-first CLI, public API, paid-file authorization, static PWA, visual system, and every previously passing behavior were retained.
+
+## Exact reproduction and regression coverage
+
+Before repair, the verifier's 60-request production burst had no `429` or `Retry-After`. This worker reproduced the same unbounded behavior before the fix: no `429` was observed (responses were 403/503 from the old upstream path).
+
+After deploying `e075e94`, the exact live command returned **54×403 and 6×429** within 60 concurrent anonymous requests; the immediately following response was `429` with `Retry-After: 59`. The platform uses several gateway source paths, so the observed aggregate threshold is higher than one client bucket; the service no longer permits an unbounded burst.
+
+```sh
+seq 1 60 | xargs -P 20 -I{} curl -sS -o /dev/null -w '%{http_code}\n' \
+  -X POST 'https://local-records-continuity.sociobot.in/api/plus-download?asset=quarterly-restore-drill.md' \
+  | sort | uniq -c
+```
+
+New coverage is in `api/plus-download/index.test.cjs`:
+
+- `@claim:protected-download-rate-limit` recreates the verifier's 60-request anonymous burst: 20 ordinary license denials then 40 `429` responses with `Retry-After` and no-store headers.
+- An authenticated 60-request burst proves only the first 20 reach Sociobot.
+- A separate-process regression proves lock-protected state survives isolated Node workers.
+- A fake-clock test proves the retry interval and reset boundary.
+- A browser regression checks the accessible, precise retry message.
+
+`.factory/claims.json` maps the protected-download claim to:
+
+```sh
+npm run test:claim:protected-download-rate-limit
+```
+
+## Exact verification
+
+The following all passed from a clean install on the repaired tree:
 
 ```sh
 npm ci
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 npm run typecheck
+cargo test --workspace
 npm test
 npm run build
 npm audit --audit-level=high
 cargo package --manifest-path crates/continuity/Cargo.toml --allow-dirty
+npm run test:claim:protected-download-rate-limit
 ```
 
-To remove the blocker, implement a server/edge rate limit and demonstrate a
-rapid live request burst that returns `429 Too Many Requests` with
-`Retry-After`; then re-run verification 4.
+- Rust: 6 library tests, 2 binary tests, 5 CLI integrations, and 1 doctest passed.
+- API: 9 tests passed, including exact burst, authenticated upstream cap, worker-isolation, reset, and fail-closed behaviors.
+- Browser: 23 Playwright checks passed on desktop Chromium and 390×844 mobile; one intentional duplicate static-contract check was skipped.
+- Package/consumer: `cargo package` verified successfully; a clean temporary `cargo install` consumer ran `continuity 0.1.0` and its documented help; a separate temporary crate compiled and ran the packaged public `Config` and `RecordSource` API (`public-api-ok`).
+- Production outputs: `target/release/continuity` is 2,504,880 bytes; `target/package/continuity-pack-0.1.0.crate` is 27,318 bytes. Home JS is 7,179 bytes, shared JS 711 bytes, CSS 13,005 bytes, and the original hero WebP 146,138 bytes.
 
----
+## Live verification
 
-# Previous repair handoff — superseded
-
-- Date: 2026-08-28
-- Work order: `local-records-continuity-repair-3`
-- Repaired report: `3f6e9411c5e7107b27e90a0ec943795cdb17fa4f`
-- Repaired candidate: `5b234b209f80c00b670a081b425da35173952254`
-- Live URL: <https://local-records-continuity.sociobot.in>
-- Artifact: Rust CLI/library + static PWA site with an Azure managed download API
-
-## Result
-
-**PASS.** Every product defect in independent verification 3 has been repaired:
-
-1. Scheduled `check` now orders mixed-configuration packs by their receipt UTC
-   creation time instead of the business-prefixed filename. It fails closed on
-   missing, malformed, mismatched, or implausibly future receipts, then fully
-   verifies the exact newest pack. Unit and CLI regressions reproduce the
-   verifier's Zulu-older/Alpha-newer case, corrupt Alpha, require exit 4, and
-   assert JSON reports the receipt mismatch instead of a false green.
-2. The three Plus files no longer exist under `site/public` or `dist/site`.
-   `/plus/*` is explicitly denied, the service worker excludes paid routes, and
-   a same-origin POST-only managed function returns an allowlisted file only
-   after a fresh production Sociobot license verdict. It sends `no-store` and
-   `nosniff`; missing, invalid, unavailable, and unknown cases fail closed.
-3. Continuity Plus is now present in the production registry at USD 39.00. Its
-   production checkout returns HTTP 303 to the Dodo-hosted checkout, and the
-   live Buy action reached that exact route on desktop and mobile.
-4. The Plus and footer Terms links now compute at least 44×44 CSS px. A browser
-   regression checks every visible link, button, and input at both viewports.
-
-The researched CLI scope, local-first behavior, public API, visual thesis, free
-tier, and previously passing recovery behavior are unchanged.
-
-## Exact local verification
-
-The following completed successfully from the repaired tree:
-
-```sh
-npm ci
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-npm run typecheck
-npm test
-npm run build
-npm audit --audit-level=high
-cargo package --manifest-path crates/continuity/Cargo.toml --allow-dirty
-```
-
-- `npm ci`: 25 packages audited, 0 vulnerabilities.
-- Rust: 6 library tests, 2 binary tests, 5 CLI integration tests, and 1 doctest
-  passed.
-- Managed API: 5 tests passed, including denial of every advertised asset
-  without a bearer license and release only after a valid verdict.
-- Browser: 21 passed across desktop Chromium and 390×844; 1 deliberate
-  duplicate static-contract run skipped.
-- Production output: `target/release/continuity` (2,504,880 bytes) and
-  `dist/site/`.
-- Cargo package: 8 files, 104.1 KiB unpacked, 26.7 KiB compressed; package
-  verification compiled successfully.
-- A separate consumer compiled and ran `Config`, `RecordSource`,
-  `Config::from_path`, and `Error::exit_code` from the packaged crate.
-- `cargo install --path target/package/continuity-pack-0.1.0 --root <temp>
-  --locked` installed the packaged binary; its help exposed all documented
-  commands, `--json`, `--ci`, and the exit-code guide.
-
-Fresh local mobile Lighthouse 12.8.2 scored Performance **98**,
-Accessibility **100**, Best Practices **100**, and SEO **100**. FCP was 1.0 s,
-LCP 1.8 s, TBT 140 ms, CLS 0, and Speed Index 1.0 s. Built payloads are 8,169
-bytes total JS, 13,005 bytes CSS, 0 font bytes, and a 146,138-byte hero WebP.
-
-## Deployment and live evidence
-
-The exact work-order build and deployment completed successfully:
-
-```sh
-npm ci && npm run build:site
-/opt/fleet/lib/deploy-static.sh local-records-continuity /work/repo/dist/site
-```
-
-Deployment ID: `e36d2664-e2ca-43b6-9184-b6c3495ef88e`. The deployment included
-`/work/repo/api` as an Azure Functions managed API; the custom domain is Ready
-and HTTPS is serving the repair.
-
-- Factory `verify-url.sh`: HTTP 200 in 727 ms, correct title and `lang=en`, one
-  h1, main landmark, no missing alt text, no unlabeled buttons, no console
-  errors.
-- Local and live SHA-256 matched for root/privacy/terms HTML, all four
-  referenced hashed JS/CSS assets, `sw.js`, web manifest, hero WebP, and mark
-  SVG. Root HTML is
-  `7b089db05064da0673248ac6f5a79aeeec23708d8b2bef4d3687b7f774109e4f`.
-- Live Chromium at 1440×900 and 390×844: no overflow, console errors, page
-  errors, or failed requests; first Tab reached Skip to main content; no
-  visible target was below 44×44; zero serious/critical Axe findings; reduced
-  motion computed to `0.00001s`.
-- The live service worker controlled the root and updated successfully. A
-  390px offline reload retained the h1 and offline shell.
-- Each `/plus/<advertised-file>` request returned 404 and none of the paid
-  bytes. Each live POST without a buyer license returned 403 and a 38-byte
-  JSON error, not paid content; an explicit invalid token also returned 403
-  with `Cache-Control: no-store`.
-- An invalid returned token was saved locally, stripped from the URL, checked
-  by the production endpoint, and left downloads hidden.
-- The production registry reports slug `local-records-continuity`, name
-  `Continuity Plus`, `price_minor: 3900`, currency USD, and the exact checkout
-  URL. Checkout returned 303 to `checkout.dodopayments.com`.
-- Hashed assets and the hero use one-year immutable caching; `sw.js` is
-  `no-cache, no-store, must-revalidate`; the manifest has its correct MIME type
-  and one-hour cache. Live responses include HSTS, `nosniff`, strict-origin
-  referrer policy, and camera/microphone/geolocation restrictions.
-- Source and dependency inspection found no analytics, telemetry, CDN fonts,
-  third-party runtime scripts, or Rust networking stack. The only optional
-  runtime third party remains the disclosed Sociobot billing/license service.
+- Local and live home HTML match exactly: `82eeac9aa08b1c5dcfa3fdb561a68918d26192611af8ceadf795924b00dc5282`.
+- Factory URL smoke check passed: HTTPS 200, correct title and `lang=en`, one `h1`, main landmark, complete image alt text, labeled buttons, and no console errors. Evidence is in `/tmp/continuity-live-url-qa.xiidtF` for this worker.
+- Live Chromium at 1440×900 and 390×844: no horizontal overflow or console errors; first Tab reaches “Skip to main content”; one h1 and one main; zero serious/critical Axe violations; reduced-motion transition duration is `0.00001s`; first-load requests are same-origin only.
+- A fresh 390px context confirmed the service worker controls the page, shows the offline strip, and reloads the home h1 while offline.
+- Response-policy checks: `sw.js` is `no-cache, no-store, must-revalidate`; manifest MIME/caching is correct; protected static file paths are 404; unknown protected API files are 404 with no-store/nosniff; the API publishes the rate-limit policy and sends no-store on throttling. Live static responses also carry HSTS, strict-origin referrer policy, and camera/microphone/geolocation restrictions.
+- Privacy check: the initial live browser flow made same-origin requests only. There are no analytics, telemetry, CDN fonts, third-party scripts, or CLI networking. Optional license and checkout behavior remains disclosed.
 
 ## Known limits and next steps
 
-- No real-money production purchase was completed during repair. The enabled
-  production checkout and return/invalid paths were exercised live; the
-  authorized download branch is covered end to end in browser/function tests
-  with a valid verification verdict. A future release smoke test may use a
-  factory-owned buyer license without changing product code.
-- Real keychain writes, crontab installation, and native macOS/Windows paths
-  remain intentionally unmutated in this Linux worker. Their existing parsing,
-  status, and failure behavior remain covered by the inherited suite.
-- Registry publication remains factory-owned. The crate is ready for
-  `cargo publish --manifest-path crates/continuity/Cargo.toml`; do not publish
-  from this worker.
+- No real-money purchase or valid production buyer token was used. Existing browser/function coverage exercises the authorized path with a mocked valid Sociobot verdict; live tests exercised protected paths, invalid/missing access, response policies, and rate limiting without exposing paid content.
+- The standalone Axe CLI could not launch because this worker has no system Chrome binary. The repository's Playwright Axe integration ran successfully against desktop and mobile, and the factory browser smoke check also passed.
+- Registry publication and crate publishing remain factory-owned. The crate is ready for `cargo publish --manifest-path crates/continuity/Cargo.toml`; do not publish from this worker.
