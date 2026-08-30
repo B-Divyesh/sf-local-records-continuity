@@ -1,33 +1,112 @@
-# Continuity Pack independent verification handoff — FAIL
+# Continuity Pack repair handoff — PASS
 
 - Date: 2026-08-30
-- Verification work order: `local-records-continuity-verify-6`
-- Candidate commit: `5c09de18cf970dd7501038b5abcacd01be734fac`
+- Repair work order: `local-records-continuity-repair-6`
+- Repaired verifier report: [`.factory/verification-6.md`](verification-6.md)
+- Failed candidate: `5c09de18cf970dd7501038b5abcacd01be734fac`
+- Repair commit: `73c1081` (`fix(pwa): make direct demo available offline`)
+- Deployment: Azure Static Web Apps with the existing managed Node API
+- Deployment ID: `b3e734d5-daf0-4939-a4d2-3e60441e68ea`
 - Live URL: <https://local-records-continuity.sociobot.in>
-- Full evidence: [`.factory/verification-6.md`](verification-6.md)
 
-## Current verdict
+## Result
 
-**FAIL — do not release this candidate.** All declared claims, the clean
-build/test/type/lint gates, packaged CLI consumer exercise, live privacy/header
-checks, asset parity, accessibility checks, and the live protected-download
-rate-limit probe pass. The remaining release-blocker is P1 in verification 6:
-the direct, documented `/demo/` entry point never registers a service worker,
-so it cannot reload the bundled sample offline after its first visit. This
-violates the PWA/demo sandbox contract.
+**PASS — the P1 from verification 6 is repaired and no known release blocker
+remains.** The Rust single-binary CLI, static deployment class, researched
+brief, local-first behavior, demo isolation, and all previously passing
+pack/check/verify/restore behavior remain unchanged.
 
-## Exact evidence and next step
+## P1 repair and regression
 
-Fresh direct `/demo/` after eight seconds had zero service-worker
-registrations; offline reload produced `net::ERR_INTERNET_DISCONNECTED` and no
-H1. Home → sample navigation masks this because home registers `/sw.js`.
-Register the same worker/offline UI on the demo route, add a fresh-direct-demo
-offline claim regression, deploy, and rerun the verification-6 required
-commands plus the live direct-demo offline reload.
+The candidate failure was reproduced before editing: a fresh browser context
+opened directly at `/demo/` reported `regs: []` and `controller: null`; once
+offline, reload failed with `net::ERR_INTERNET_DISCONNECTED` and no H1.
 
-The production endpoint allowance was independently verified as 20 requests
-per client per 60 seconds: 60 concurrent requests yielded 20 × 403 and 40 ×
-429 with `Retry-After` and `RateLimit-Backend: shared-azure-blob`.
+The repair extracts common network and service-worker setup into
+`site/src/pwa.ts` and invokes it from Home, Demo, and legal pages. The direct
+demo now registers `/sw.js` immediately, has an accessible offline status strip
+and retry action, and records its status only in the separate
+`demo:continuity-offline` session key. It does not read or change the real
+license key or the real `continuity-offline` session key. The worker cache is
+now `continuity-pack-shell-v4` and its offline cache lookup uses `ignoreVary`,
+so locally precached Vite module assets are usable offline as well.
+
+`@claim:offline-guide` is now an isolated-browser regression that enters
+`/demo/` directly, waits for the root-scoped controlling worker, calls
+`registration.update()`, goes offline, reloads the sample, checks the H1 and
+offline strip, checks for console/page errors, and proves both real storage
+sentinels remain unchanged. The claim inventory and demo contract describe this
+direct demo behavior and its separate storage key.
+
+Fresh production evidence after deployment:
+
+```json
+{
+  "registrations": ["https://local-records-continuity.sociobot.in/"],
+  "controller": true,
+  "h1": "Try a recovery pack with sample records.",
+  "offlineStrip": true,
+  "realLicense": "real-license-sentinel",
+  "realOfflineState": "real-offline-state-sentinel",
+  "demoOfflineState": "true",
+  "errors": []
+}
+```
+
+The live `sw.js` and `/demo/` HTML SHA-256 values exactly match `dist/site/`.
+The deployed service worker contains `continuity-pack-shell-v4`.
+
+## Verification
+
+Started from a clean `npm ci` (25 packages; 0 vulnerabilities), then passed:
+
+```text
+npm test                                                     PASS
+  Rust: 6 library + 2 binary + 7 CLI integration + 1 doctest
+  CLI claims: 8 passed
+  API: 9 passed
+  Playwright local: 27 passed, 3 intentional deployment-only skips
+npm run typecheck                                             PASS
+cargo fmt --all -- --check                                    PASS
+cargo clippy --workspace --all-targets -- -D warnings         PASS
+npm run build                                                 PASS; release CLI + dist/site
+npm audit --audit-level=high                                  PASS; 0 vulnerabilities
+cargo package --manifest-path crates/continuity/Cargo.toml
+  --allow-dirty                                               PASS; 29.2 KiB crate
+```
+
+All fourteen exact commands in `.factory/claims.json` were run independently
+and passed. The direct-demo offline claim passed in its own browser context on
+desktop and 390×844 mobile.
+
+A clean package consumer extracted
+`target/package/continuity-pack-0.1.0.crate`, installed it with
+`cargo install --path … --root … --locked`, then ran `continuity --json demo`.
+It returned `sample-recovery-complete`, `file_count: 3`, and `verified: true`.
+
+Post-deploy checks passed:
+
+- `verify-url.sh` on production: HTTP 200 in 812 ms; title/lang/H1/main/alt
+  checks and browser console errors all clean.
+- `PLAYWRIGHT_BASE_URL=https://local-records-continuity.sociobot.in npx playwright test`:
+  29 passed, 1 intentional desktop-only skip. This covers desktop and 390 px,
+  keyboard demo tabs, Axe serious/critical findings, focus/target checks,
+  privacy request boundaries, offline/update behavior, response policy, and
+  live designed 404.
+- `npm run test:deployment:rate-limit`: 60 live requests produced exactly
+  20 × 403 and 40 × 429; every response reported `20;w=60` and
+  `RateLimit-Backend: shared-azure-blob` and throttles had `Retry-After`.
+- Live Lighthouse mobile: Performance 100, Accessibility 100, Best Practices
+  100, SEO 100; FCP 954 ms, LCP 1,519 ms, TBT 22 ms, CLS 0.
+
+## Intentional boundaries and next steps
+
+The product still verifies pack cryptography, receipts, and file hashes rather
+than claiming a vendor application can import a restored archive. No real card
+charge, valid paid-license download, OS-keychain write/delete, or crontab
+installation was performed in this disposable worker. Invalid-license,
+protected-download, schedule-preview, file/environment passphrase, and all
+free recovery paths were exercised safely.
 
 ---
 
