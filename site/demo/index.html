@@ -38,27 +38,27 @@
     </header>
     <main id="main" class="demo-main">
       <section class="demo-intro" aria-labelledby="demo-page-title">
-        <p class="coordinate">Bundled CLI sample</p>
-        <h1 id="demo-page-title">Try a recovery pack with sample records.</h1>
-        <p class="lede">The sample uses fictional bookshop records. The CLI creates a new temporary workspace and never reads your files.</p>
-        <div class="copy-row demo-command"><code tabindex="0" aria-label="Demo command">continuity demo</code><button class="copy-button" type="button" data-copy="continuity demo">Copy</button></div>
-        <p class="action-note">The command packs, checks, and restores three bundled files. It prints the temporary workspace path.</p>
-      </section>
-      <section class="demo-section demo-page-terminal" aria-labelledby="sample-result-title">
-        <div class="demo-copy">
-          <p class="coordinate">Recorded command result</p>
-          <h2 id="sample-result-title">Inspect each recovery step.</h2>
-          <p>This preview mirrors the shipped sample. Run the command to create fresh files and timestamps.</p>
+        <div class="demo-intro-copy">
+          <p class="coordinate">Bundled CLI sample</p>
+          <h1 id="demo-page-title">Try a recovery pack with sample records.</h1>
+          <p class="lede">The sample uses fictional bookshop records. It never reads your files.</p>
           <div class="tab-list" role="tablist" aria-label="Recovery pack demo stages">
             <button role="tab" aria-selected="true" aria-controls="demo-panel" id="tab-pack" data-demo="pack">Pack</button>
             <button role="tab" aria-selected="false" aria-controls="demo-panel" id="tab-verify" data-demo="verify" tabindex="-1">Check</button>
             <button role="tab" aria-selected="false" aria-controls="demo-panel" id="tab-restore" data-demo="restore" tabindex="-1">Restore</button>
           </div>
         </div>
-        <div class="terminal" id="demo-panel" role="tabpanel" aria-labelledby="tab-pack" tabindex="0">
+        <div class="terminal demo-page-terminal" id="demo-panel" role="tabpanel" aria-labelledby="tab-pack" tabindex="0">
           <div class="terminal-bar"><span>continuity demo · sample log</span><span>temporary workspace</span></div>
           <pre id="demo-output" aria-live="polite"><code></code></pre>
           <p class="terminal-note" id="demo-note"></p>
+        </div>
+        <div class="demo-run">
+          <p class="coordinate">Recorded command result</p>
+          <h2>Run the same sample locally.</h2>
+          <p>The command creates a new temporary workspace. It packs, checks, and restores three bundled files.</p>
+          <div class="copy-row demo-command"><code tabindex="0" aria-label="Demo command">continuity demo</code><button class="copy-button" type="button" data-copy="continuity demo" data-label="Copy demo command">Copy demo command</button></div>
+          <p class="action-note">The command prints the temporary workspace path.</p>
         </div>
       </section>
       <p id="copy-status" class="sr-only" aria-live="polite"></p>

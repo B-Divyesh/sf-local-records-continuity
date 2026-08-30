@@ -90,6 +90,12 @@ test("@claim:pack-artifacts writes an encrypted pack, readable manifest, and mat
     assert.doesNotMatch(pack.toString("utf8"), /INV-1048|Northwind Reading Group/);
     assert.match(manifest, /Maple Street Books/);
     assert.match(manifest, /Records: 3 files/);
+    assert.match(manifest, /PACKED RECORDS/);
+    assert.match(manifest, /records\/customers\/customers\.csv/);
+    assert.match(manifest, /records\/invoices\/invoices\.csv/);
+    assert.match(manifest, /records\/supporting-documents\/insurance-renewal\.txt/);
+    assert.match(manifest, /Run: continuity verify <pack\.cpack>/);
+    assert.match(manifest, /Restore only into a new empty folder/);
     assert.equal(receipt.sha256, createHash("sha256").update(pack).digest("hex"));
   } finally {
     await removeDemo(result);
@@ -255,7 +261,42 @@ test("@claim:passphrase-sources accepts a file, environment value, hidden prompt
       }
     });
     assert.equal(JSON.parse(fromKeychain.stdout).authenticated, true);
+    const generatedFiles = [
+      join(result.workspace, "continuity.toml"),
+      ...((await readdir(join(result.workspace, "target"))).map((name) => join(result.workspace, "target", name))),
+      join(result.restored, "RESTORE-REPORT.txt")
+    ];
+    for (const path of generatedFiles) {
+      assert.equal((await readFile(path)).includes(Buffer.from(demoPassphrase)), false, `${path} leaked the passphrase`);
+    }
+    for (const captured of [fromFile.stdout, fromFile.stderr, fromEnvironment.stdout, fromEnvironment.stderr, prompted, fromKeychain.stdout, fromKeychain.stderr]) {
+      assert.doesNotMatch(captured, new RegExp(demoPassphrase));
+    }
   } finally {
     await removeDemo(result);
+  }
+});
+
+test("@claim:schedule-preview prints a daily check entry without installing it", async () => {
+  const target = await mkdtemp(join(tmpdir(), "continuity-schedule-target-"));
+  const shimDir = await mkdtemp(join(tmpdir(), "continuity-schedule-bin-"));
+  const crontabMarker = join(shimDir, "crontab-called");
+  const crontab = join(shimDir, "crontab");
+  try {
+    await writeFile(crontab, `#!/bin/sh\nprintf called > ${shellQuote(crontabMarker)}\nexit 99\n`);
+    await chmod(crontab, 0o700);
+    const { stdout } = await execFileAsync(binary, ["--json", "schedule", "--target", target, "--daily-at", "03:15"], {
+      env: { ...process.env, PATH: `${shimDir}:${process.env.PATH ?? ""}` }
+    });
+    const preview = JSON.parse(stdout);
+    assert.equal(preview.status, "preview");
+    assert.match(preview.schedule, /^15 3 \* \* \*/);
+    assert.match(preview.schedule, new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    await assert.rejects(readFile(crontabMarker), (error) => error.code === "ENOENT");
+  } finally {
+    await Promise.all([
+      rm(target, { recursive: true, force: true }),
+      rm(shimDir, { recursive: true, force: true })
+    ]);
   }
 });

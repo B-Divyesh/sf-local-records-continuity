@@ -1,13 +1,12 @@
 # Continuity Pack
 
 Continuity Pack is a local-first CLI for small businesses that need a recovery
-handoff—not another backup subscription. It gathers configured invoices,
-customer exports, and business records; records SHA-256 checksums; encrypts the
-pack with authenticated encryption; writes a readable restore manifest; copies
-only to a target you explicitly name; and dry-reads that target on schedule.
+handoff—not another backup subscription. It gathers configured business records
+and records their SHA-256 checksums. It encrypts the pack, writes a restore
+manifest, and checks the target on schedule.
 
 It does not administer databases, upload to hosted storage, or claim that an
-archive check is a full application restore. You remain responsible for making
+pack check is a full application restore. You remain responsible for making
 your application exports and periodically testing a real restore.
 
 ## Try the bundled sample
@@ -19,27 +18,24 @@ continuity demo
 ```
 
 The command writes three fictional Maple Street Books files into a unique
-temporary workspace. It packs, checks, and restores them with the production
-code path, then prints the workspace path for inspection. `continuity --demo`
-is an alias, and `continuity --json demo` returns one JSON result. Delete the
-printed directory to reset; each new run uses a fresh directory.
+temporary workspace. It runs the same pack, check, and restore commands used
+with your own files. It then prints the workspace path for inspection.
+`continuity --demo` is an alias. `continuity --json demo` returns one JSON
+result. Delete the printed directory to reset. Each new run uses a fresh
+directory.
 
 The browser preview is at
-<https://local-records-continuity.sociobot.in/demo/>. Sample source files are
+<https://local-records-continuity.sociobot.in/demo/?demo=1>. Sample source files are
 in [`examples/maple-street-books/`](examples/maple-street-books/).
 
 ## Install
 
-Download a release binary for your platform, or build from source:
+Build from source. Release binaries are not available yet:
 
 ```sh
 cargo install --git https://github.com/B-Divyesh/sf-local-records-continuity continuity-pack --locked
 continuity --help
 ```
-
-Rust 1.85+ is required when building from source. The resulting executable is a
-single binary. From an existing checkout, `cargo install --path
-crates/continuity --locked` is equivalent. Releases begin at `0.1.0`.
 
 ## Usage
 
@@ -75,18 +71,14 @@ continuity restore /media/offsite/backups/2026-08-28T120000Z.cpack \
   --output ./recovered-records
 ```
 
-Install a scheduled dry-read with the OS scheduler. This command prints the
-entry by default; `--install` changes the current user's crontab on Linux/macOS
-after showing the exact command. On Windows, add an equivalent `continuity --ci
-check ...` command to Task Scheduler:
+Print a daily scheduled-check entry for review:
 
 ```sh
 continuity schedule --target /media/offsite/backups --daily-at 03:15
-continuity schedule --target /media/offsite/backups --daily-at 03:15 --install
 ```
 
-The scheduled `check` exits non-zero and writes a clear error to stderr when the
-target is unavailable, stale, corrupt, or cannot be decrypted.
+A failed scheduled check returns a non-zero exit code. Its error names an
+unavailable, stale, corrupt, or unreadable target.
 
 ### Passphrases and OS keychains
 
@@ -101,8 +93,8 @@ continuity key forget
 ```
 
 Keychain storage uses macOS Keychain (`security`), Linux Secret Service
-(`secret-tool`), or Windows Credential Manager. The CLI never writes a raw
-passphrase to its configuration file.
+(`secret-tool`), or Windows Credential Manager. The CLI does not write a raw
+passphrase into its configuration or generated recovery files.
 
 ### Exit codes
 
@@ -118,15 +110,14 @@ Run `continuity <command> --help` for command-specific examples.
 
 ## Paid convenience tier
 
-The complete pack, verify, check, and restore safety path is free. Continuity
+Pack, check, verify, and restore are free. Continuity
 Plus is a one-time purchase that adds a multi-location configuration workbook,
-quarterly restore-drill worksheet, and staff handoff guide. It never gates core
-export, recovery, accessibility, or failure reporting. The site checks that
-Sociobot has enabled the product before sending a buyer to checkout, so an
-unregistered product cannot lead to a dead payment route. Paid files are served
-by a same-origin managed endpoint only after a live Sociobot license check; they
-are not included in the public static build or offline cache. License
-restoration is available on the product site; Sociobot/Dodo is the merchant of
+quarterly restore-drill worksheet, and staff handoff guide. Pack, check, verify,
+restore, exit codes, and JSON output do not require a Plus license. The site
+confirms that checkout is available before opening Sociobot. An unavailable
+product stays on this page. The site checks the license before each paid
+download. Paid files are absent from the public build and offline cache. You can
+save or remove a license on the product site. Sociobot/Dodo is the merchant of
 record.
 
 ## Develop and verify
@@ -141,9 +132,8 @@ npm test
 npm run build
 ```
 
-`npm run build` is the factory build command. It compiles the CLI in release
-mode, builds the static site, and places the deployable website at `dist/site/`
-with `index.html` at that root. `npm run build:site` builds only the site.
+`npm run build` builds the release CLI and static site. The deployable site is
+in `dist/site/`. `npm run build:site` builds only the site.
 Release builds use the production Sociobot API by default; explicitly set
 `VITE_BILLING_API_BASE=https://pilot-api.sociobot.in/api/v1` only for staging.
 The managed download function uses `RATE_LIMIT_BLOB_BASE_URL`, a private

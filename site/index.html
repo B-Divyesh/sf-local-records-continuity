@@ -46,7 +46,7 @@
           <h1 id="hero-title">Build a recovery pack for local business records.</h1>
           <p class="lede">For small businesses using self-hosted or local admin software, it turns exports into a recovery pack you can test.</p>
           <div class="hero-actions">
-            <a class="button primary" href="/demo/">Try it with sample data</a>
+            <a class="button primary" href="/demo/?demo=1">Try it with sample data</a>
             <a class="text-link" href="#guide">Build your own pack <span aria-hidden="true">↘</span></a>
           </div>
           <p class="action-note">See the bookshop sample and its temporary-folder demo command.</p>
@@ -66,11 +66,11 @@
         <p class="coordinate">What the pack adds</p>
         <div>
           <h2 id="problem-title">Know which records you can recover.</h2>
-          <p>Continuity Pack writes an encrypted archive, a readable manifest, and a receipt. Another person can identify and check the files.</p>
+          <p>Continuity Pack writes an encrypted pack, a readable manifest, and a receipt. The manifest lists the business, source files, and verification command.</p>
         </div>
         <aside class="boundary-note" aria-label="Important limitation">
           <span aria-hidden="true">△</span>
-          <p><strong>Honest boundary</strong> Verification proves the pack decrypts and its files match. It does not replace a periodic test import into your application.</p>
+          <p><strong>Verification limit</strong> Verification proves the pack decrypts and its files match. It does not replace a periodic test import into your application.</p>
         </aside>
       </section>
 
@@ -86,11 +86,11 @@
           </li>
           <li>
             <span class="route-marker">02</span>
-            <div><h3>Encrypt the pack</h3><p>Each file gets a SHA-256, then the complete archive is compressed and authenticated with XChaCha20-Poly1305.</p><code>continuity pack --target /media/offsite</code></div>
+            <div><h3>Encrypt the pack</h3><p>Each file gets a SHA-256. The complete pack is compressed and authenticated with XChaCha20-Poly1305.</p><code>continuity pack --target /media/offsite</code></div>
           </li>
           <li>
             <span class="route-marker">03</span>
-            <div><h3>Check the target pack</h3><p>A scheduled dry-read decrypts and hashes the target copy. A missing, stale, or damaged target exits loudly.</p><code>continuity check --target /media/offsite</code></div>
+            <div><h3>Check the target pack</h3><p>A scheduled check decrypts the pack and compares every file hash. A failed check returns a non-zero exit code and names the problem.</p><code>continuity check --target /media/offsite</code></div>
           </li>
         </ol>
       </section>
@@ -102,7 +102,7 @@
           <p>The bundled bookshop sample shows each result. Use <code>--json</code> for scripts.</p>
           <div class="tab-list" role="tablist" aria-label="Recovery pack demo stages">
             <button role="tab" aria-selected="true" aria-controls="demo-panel" id="tab-pack" data-demo="pack">Pack</button>
-            <button role="tab" aria-selected="false" aria-controls="demo-panel" id="tab-verify" data-demo="verify" tabindex="-1">Verify</button>
+            <button role="tab" aria-selected="false" aria-controls="demo-panel" id="tab-verify" data-demo="verify" tabindex="-1">Check</button>
             <button role="tab" aria-selected="false" aria-controls="demo-panel" id="tab-restore" data-demo="restore" tabindex="-1">Restore</button>
           </div>
         </div>
@@ -117,23 +117,23 @@
         <div class="section-heading">
           <p class="coordinate">Install and run</p>
           <h2 id="guide-title">Build your first recovery pack.</h2>
-          <p>Build from source today. Release binaries will appear on GitHub after the factory publishes v0.1.0.</p>
+          <p>Build from source. Release binaries are not available yet.</p>
         </div>
         <div class="command-steps">
           <article>
             <span>01 · Install</span>
-            <h3>Build the single binary</h3>
-            <div class="copy-row"><code tabindex="0" aria-label="Scrollable install command">cargo install --git https://github.com/B-Divyesh/sf-local-records-continuity continuity-pack --locked</code><button class="copy-button" type="button" data-copy="cargo install --git https://github.com/B-Divyesh/sf-local-records-continuity continuity-pack --locked">Copy</button></div>
+            <h3>Build the command</h3>
+            <div class="copy-row"><code tabindex="0" aria-label="Scrollable install command">cargo install --git https://github.com/B-Divyesh/sf-local-records-continuity continuity-pack --locked</code><button class="copy-button" type="button" data-copy="cargo install --git https://github.com/B-Divyesh/sf-local-records-continuity continuity-pack --locked" data-label="Copy install command">Copy install command</button></div>
           </article>
           <article>
             <span>02 · Configure</span>
             <h3>Create the configuration</h3>
-            <div class="copy-row"><code tabindex="0" aria-label="Configuration command">continuity init</code><button class="copy-button" type="button" data-copy="continuity init">Copy</button></div>
+            <div class="copy-row"><code tabindex="0" aria-label="Configuration command">continuity init</code><button class="copy-button" type="button" data-copy="continuity init" data-label="Copy setup command">Copy setup command</button></div>
           </article>
           <article>
             <span>03 · Pack</span>
             <h3>Pack to an explicit target</h3>
-            <div class="copy-row"><code tabindex="0" aria-label="Pack command">continuity pack --target /media/offsite/backups</code><button class="copy-button" type="button" data-copy="continuity pack --target /media/offsite/backups">Copy</button></div>
+            <div class="copy-row"><code tabindex="0" aria-label="Pack command">continuity pack --target /media/offsite/backups</code><button class="copy-button" type="button" data-copy="continuity pack --target /media/offsite/backups" data-label="Copy pack command">Copy pack command</button></div>
           </article>
         </div>
         <p id="copy-status" class="sr-only" aria-live="polite"></p>
@@ -150,8 +150,8 @@
           <p class="coordinate">Optional field kit</p>
           <h2 id="plus-title">Continuity Plus</h2>
           <p class="price"><strong>$39</strong> one-time purchase</p>
-          <p>The CLI’s complete safety path stays free. Plus provides a multi-location configuration workbook, restore-drill worksheet, and staff handoff guide.</p>
-          <p class="merchant-note">Sociobot/Dodo is the merchant of record. Refunds are handled there and revoke the license automatically.</p>
+          <p>Pack, check, verify, and restore are free. Plus provides a multi-location configuration workbook, restore-drill worksheet, and staff handoff guide.</p>
+          <p class="merchant-note">Sociobot/Dodo is the merchant of record and handles refunds.</p>
           <div class="plus-actions">
             <button class="button ochre" id="buy-plus" type="button">Buy Continuity Plus</button>
             <a href="/terms/">Terms</a><a href="/privacy/">Privacy</a>
@@ -164,6 +164,7 @@
             <label for="license-token">License token</label>
             <div class="license-input-row"><input id="license-token" name="license" type="text" autocomplete="off" spellcheck="false" required /><button type="submit">Verify license</button></div>
           </form>
+          <button class="remove-license" id="remove-license" type="button">Remove saved license</button>
           <p id="license-status" class="license-status" aria-live="polite">No license stored. The free CLI remains fully available.</p>
           <div id="plus-downloads" class="plus-downloads" hidden>
             <h4>Your field kit</h4>

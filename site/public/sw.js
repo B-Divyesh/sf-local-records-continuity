@@ -1,4 +1,4 @@
-const CACHE = "continuity-pack-shell-v5";
+const CACHE = "continuity-pack-shell-v6";
 const GENERATED_ASSETS = [/* __PRECACHE_ASSETS__ */];
 const SHELL = ["/", "/demo/", "/privacy/", "/terms/", "/404.html", "/contour-vault.webp", "/social-card.webp", "/mark.svg", "/apple-touch-icon.png", "/site.webmanifest", ...GENERATED_ASSETS];
 

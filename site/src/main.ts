@@ -1,6 +1,11 @@
 import "./style.css";
 import { setUpPwa } from "./pwa";
 
+const entryUrl = new URL(window.location.href);
+if (entryUrl.searchParams.get("demo") === "1") {
+  window.location.replace("/demo/?demo=1");
+} else {
+
 type DemoKey = "pack" | "verify" | "restore";
 
 const demos: Record<DemoKey, { output: string; note: string }> = {
@@ -59,7 +64,7 @@ document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => 
       await navigator.clipboard.writeText(value);
       button.textContent = "Copied";
       if (copyStatus) copyStatus.textContent = `Copied: ${value}`;
-      window.setTimeout(() => { button.textContent = "Copy"; }, 1800);
+      window.setTimeout(() => { button.textContent = button.dataset.label ?? "Copy command"; }, 1800);
     } catch {
       if (copyStatus) copyStatus.textContent = `Copy unavailable. Select this command: ${value}`;
     }
@@ -80,6 +85,7 @@ const downloads = document.querySelector<HTMLElement>("#plus-downloads");
 const downloadStatus = document.querySelector<HTMLElement>("#download-status");
 const buyButton = document.querySelector<HTMLButtonElement>("#buy-plus");
 const purchaseStatus = document.querySelector<HTMLElement>("#purchase-status");
+const removeLicenseButton = document.querySelector<HTMLButtonElement>("#remove-license");
 const checkoutUrl = `${API_BASE}/products/${SLUG}/checkout`;
 
 interface VerdictCache { token: string; valid: boolean; checkedAt: number }
@@ -91,6 +97,9 @@ function storageGet(key: string): string | null {
 }
 function storageSet(key: string, value: string): void {
   try { localStorage.setItem(key, value); } catch { /* Private mode may reject persistence. */ }
+}
+function storageRemove(key: string): void {
+  try { localStorage.removeItem(key); } catch { /* Private mode may reject persistence. */ }
 }
 function setLicenseState(valid: boolean, message: string, state: "active" | "error" | "neutral" = "neutral"): void {
   if (downloads) downloads.hidden = !valid;
@@ -172,6 +181,13 @@ licenseForm?.addEventListener("submit", (event) => {
   storageSet(LICENSE_KEY, token);
   void verifyLicense(token);
 });
+removeLicenseButton?.addEventListener("click", () => {
+  storageRemove(LICENSE_KEY);
+  storageRemove(CACHE_KEY);
+  if (licenseInput) licenseInput.value = "";
+  setLicenseState(false, "Saved license removed. The free CLI remains available.");
+  licenseInput?.focus();
+});
 void loadLicense();
 
 document.querySelectorAll<HTMLButtonElement>("[data-plus-asset]").forEach((button) => {
@@ -240,3 +256,4 @@ buyButton?.addEventListener("click", async () => {
     buyButton.disabled = false;
   }
 });
+}

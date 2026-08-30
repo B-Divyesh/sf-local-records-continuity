@@ -52,7 +52,17 @@ if (tabs[0]) selectDemo(tabs[0]);
 setUpPwa({ offlineStateKey: "demo:continuity-offline" });
 
 document.querySelector("#reset-demo")?.addEventListener("click", () => {
+  for (const storage of [localStorage, sessionStorage]) {
+    for (let index = storage.length - 1; index >= 0; index -= 1) {
+      const key = storage.key(index);
+      if (key?.startsWith("demo:")) storage.removeItem(key);
+    }
+  }
   if (tabs[0]) selectDemo(tabs[0], true);
+});
+
+document.querySelector<HTMLAnchorElement>(".demo-banner a")?.addEventListener("click", () => {
+  try { sessionStorage.removeItem("demo:continuity-offline"); } catch { /* Storage may be unavailable. */ }
 });
 
 const copyStatus = document.querySelector<HTMLElement>("#copy-status");
@@ -63,6 +73,7 @@ document.querySelector<HTMLButtonElement>("[data-copy]")?.addEventListener("clic
     await navigator.clipboard.writeText(value);
     button.textContent = "Copied";
     if (copyStatus) copyStatus.textContent = `Copied: ${value}`;
+    window.setTimeout(() => { button.textContent = button.dataset.label ?? "Copy command"; }, 1800);
   } catch {
     if (copyStatus) copyStatus.textContent = `Copy unavailable. Select this command: ${value}`;
   }

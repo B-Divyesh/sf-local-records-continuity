@@ -40,7 +40,14 @@ test("home has a complete accessible route with no console errors", async ({ pag
 
 test("desktop first screen keeps the audience, sample action, explanation, and facts in view", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "Desktop first-read regression.");
-  for (const viewport of [{ width: 1280, height: 720 }, { width: 1366, height: 768 }]) {
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 1366, height: 768 },
+    { width: 1440, height: 821 },
+    { width: 1440, height: 844 },
+    { width: 1440, height: 900 },
+    { width: 1440, height: 961 }
+  ]) {
     await page.setViewportSize(viewport);
     await page.goto("/");
     for (const selector of [".lede", ".hero-actions .button.primary", ".action-note", ".plain-facts"]) {
@@ -60,7 +67,7 @@ test("@claim:sample-demo-page opens in one click without reading real browser da
   await page.goto("/");
   await page.evaluate(() => localStorage.setItem("sb_license:local-records-continuity", "real-data-sentinel"));
   await page.getByRole("link", { name: "Try it with sample data" }).click();
-  await expect(page).toHaveURL(/\/demo\/$/);
+  await expect(page).toHaveURL(/\/demo\/\?demo=1$/);
   await expect(page.getByText("Demo — sample data, nothing is saved here.")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Try a recovery pack with sample records.");
   await expect(page.getByLabel("Demo command")).toHaveText("continuity demo");
@@ -68,6 +75,13 @@ test("@claim:sample-demo-page opens in one click without reading real browser da
   await expect(page.locator("#demo-output")).toContainText("SAMPLE RECOVERY COMPLETE");
   await page.getByRole("button", { name: "Reset demo" }).click();
   await expect(page.getByRole("tab", { name: "Pack" })).toHaveAttribute("aria-selected", "true");
+  await page.evaluate(() => sessionStorage.setItem("demo:temporary-test", "discard-me"));
+  await page.getByRole("button", { name: "Reset demo" }).click();
+  expect(await page.evaluate(() => sessionStorage.getItem("demo:temporary-test"))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("sb_license:local-records-continuity"))).toBe("real-data-sentinel");
+  await page.goto("/?demo=1");
+  await expect(page).toHaveURL(/\/demo\/\?demo=1$/);
+  await expect(page.getByText("Demo — sample data, nothing is saved here.")).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("sb_license:local-records-continuity"))).toBe("real-data-sentinel");
   expect(externalRequests).toBe(0);
 });
@@ -77,7 +91,7 @@ test("demo tabs support arrow keys and expose a transcript", async ({ page }) =>
   const pack = page.getByRole("tab", { name: "Pack" });
   await pack.focus();
   await page.keyboard.press("ArrowRight");
-  await expect(page.getByRole("tab", { name: "Verify" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Check" })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator("#demo-output")).toContainText("continuity check");
   await page.keyboard.press("End");
   await expect(page.getByRole("tab", { name: "Restore" })).toHaveAttribute("aria-selected", "true");
@@ -97,6 +111,32 @@ test("license return is stored, stripped, and unlocks after verification", async
   await page.reload();
   await expect(page.locator("#plus-downloads")).toBeVisible();
   expect(verificationCalls).toBe(1);
+});
+
+test("@claim:license-restoration saves, rechecks, rejects, and removes a license", async ({ page }) => {
+  await page.route("https://api.sociobot.in/api/v1/products/local-records-continuity/verify?license=valid-token", (route) =>
+    route.fulfill({ json: { valid: true, reason: "ok", expires_at: null } })
+  );
+  await page.route("https://api.sociobot.in/api/v1/products/local-records-continuity/verify?license=bad-token", (route) =>
+    route.fulfill({ json: { valid: false, reason: "invalid", expires_at: null } })
+  );
+  await page.goto("/#plus");
+  await page.getByLabel("License token").fill("valid-token");
+  await page.getByRole("button", { name: "Verify license" }).click();
+  await expect(page.locator("#license-status")).toContainText("active on this device");
+  expect(await page.evaluate(() => localStorage.getItem("sb_license:local-records-continuity"))).toBe("valid-token");
+  await page.reload();
+  await expect(page.getByLabel("License token")).toHaveValue("valid-token");
+  await expect(page.locator("#license-status")).toContainText("active on this device");
+  await page.getByLabel("License token").fill("bad-token");
+  await page.getByRole("button", { name: "Verify license" }).click();
+  await expect(page.locator("#license-status")).toContainText("no longer active");
+  await page.getByRole("button", { name: "Remove saved license" }).click();
+  await expect(page.locator("#license-status")).toContainText("Saved license removed");
+  expect(await page.evaluate(() => ({
+    token: localStorage.getItem("sb_license:local-records-continuity"),
+    verdict: localStorage.getItem("sb_license:local-records-continuity:verdict")
+  }))).toEqual({ token: null, verdict: null });
 });
 
 test("paid files require an active license and use the gateway-safe product header", async ({ page }) => {
@@ -175,6 +215,10 @@ test("release install, 404, and response policy contracts are deployable", async
   await expect(access("dist/site/404.html")).resolves.toBeUndefined();
   await expect(access("dist/site/demo/index.html")).resolves.toBeUndefined();
   await expect(access("dist/site/social-card.webp")).resolves.toBeUndefined();
+  const notFound = await readFile("dist/site/404.html", "utf8");
+  expect(notFound).toContain('<link rel="canonical" href="https://local-records-continuity.sociobot.in/404.html"');
+  expect(notFound).toContain('<meta property="og:title" content="Page not found — Continuity Pack"');
+  expect(notFound).toContain('<meta property="og:image" content="https://local-records-continuity.sociobot.in/social-card.webp"');
   await expect(page.locator("a[href^='/plus/']")).toHaveCount(0);
   for (const asset of ["multi-location-config.toml", "quarterly-restore-drill.md", "team-handoff-checklist.md"]) {
     await expect(access(`dist/site/plus/${asset}`)).rejects.toThrow();
@@ -196,10 +240,10 @@ test("live managed API exposes this build and preserves product-license authenti
   const identity = await page.request.get("/api/build");
   expect(identity.status()).toBe(200);
   expect(identity.headers()["cache-control"]).toBe("no-store");
-  expect(identity.headers()["x-continuity-api-build"]).toBe("local-records-continuity-repair-7");
+  expect(identity.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-1");
   await expect(identity.json()).resolves.toMatchObject({
     product: "local-records-continuity",
-    release: "local-records-continuity-repair-7",
+    release: "local-records-continuity-polish-1",
     license_header: "x-continuity-license"
   });
 
@@ -213,7 +257,7 @@ test("live managed API exposes this build and preserves product-license authenti
   expect(invalid.status()).toBe(403);
   expect(await invalid.json()).toEqual({ error: "license is not active" });
   for (const response of [missing, reserved, invalid]) {
-    expect(response.headers()["x-continuity-api-build"]).toBe("local-records-continuity-repair-7");
+    expect(response.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-1");
   }
 });
 
@@ -307,15 +351,25 @@ test("@claim:offline-guide direct demo installs its shell and reloads the sample
 });
 
 test("legal, demo, 404, and mobile layouts remain usable", async ({ page }, testInfo) => {
-  for (const path of ["/demo/", "/privacy/", "/terms/", "/404.html"]) {
+  const routes = [
+    { path: "/demo/?demo=1", title: "Demo — Continuity Pack" },
+    { path: "/privacy/", title: "Privacy — Continuity Pack" },
+    { path: "/terms/", title: "Terms — Continuity Pack" },
+    { path: "/404.html", title: "Page not found — Continuity Pack" }
+  ];
+  for (const route of routes) {
+    const path = route.path;
     await page.goto(path);
+    await expect(page).toHaveTitle(route.title);
     await expect(page.locator("h1")).toHaveCount(1);
     await expect(page.locator("main")).toBeVisible();
+    await expect(page.locator("footer a[href='/privacy/']")).toBeVisible();
+    await expect(page.locator("footer a[href='/terms/']")).toBeVisible();
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
   }
   if (testInfo.project.name === "mobile-390") {
-    for (const path of ["/", "/demo/", "/privacy/", "/terms/", "/404.html"]) {
+    for (const path of ["/", "/demo/?demo=1", "/privacy/", "/terms/", "/404.html"]) {
       await page.goto(path);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
       expect(overflow, path).toBe(false);
@@ -325,7 +379,26 @@ test("legal, demo, 404, and mobile layouts remain usable", async ({ page }, test
     }
     await page.goto("/");
     await expect(page.getByRole("link", { name: "Try it with sample data" })).toBeVisible();
+    await page.getByRole("link", { name: "Try it with sample data" }).click();
+    const outputBox = await page.locator("#demo-output").boundingBox();
+    expect(outputBox).not.toBeNull();
+    const visibleHeight = Math.min(844, outputBox!.y + outputBox!.height) - Math.max(0, outputBox!.y);
+    expect(visibleHeight / outputBox!.height).toBeGreaterThanOrEqual(0.7);
   }
+});
+
+test("route navigation and browser history move focus to the new heading", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Try it with sample data" }).click();
+  await expect(page).toHaveURL(/\/demo\/\?demo=1$/);
+  await expect(page.locator("h1")).toBeFocused();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator("h1")).toBeFocused();
+  await page.goForward();
+  await expect(page).toHaveURL(/\/demo\/\?demo=1$/);
+  await expect(page.locator("h1")).toBeFocused();
+  await expect(page.locator("#route-announcement")).toContainText("Page loaded");
 });
 
 test("focus indicators keep at least 3:1 contrast on paper, ochre, warning, and dark surfaces", async ({ page }) => {
@@ -360,7 +433,7 @@ test("@claim:browser-privacy normal and demo flows make same-origin requests onl
 });
 
 test("all visible links and controls meet the 44px target baseline", async ({ page }) => {
-  for (const path of ["/#plus", "/demo/", "/privacy/", "/terms/", "/404.html"]) {
+  for (const path of ["/#plus", "/demo/?demo=1", "/privacy/", "/terms/", "/404.html"]) {
     await page.goto(path);
     const undersized = await page.locator("a:visible, button:visible, input:visible").evaluateAll((elements) =>
       elements.flatMap((element) => {

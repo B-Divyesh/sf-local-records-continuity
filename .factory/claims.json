@@ -15,10 +15,10 @@
   },
   {
     "id": "pack-artifacts",
-    "claim": "A pack run writes an encrypted .cpack, readable restore manifest, and matching JSON receipt.",
+    "claim": "A pack run writes an encrypted .cpack, matching JSON receipt, and a manifest that names the business, source files, verification command, and restore steps.",
     "where": "home workflow, README",
     "test": "node --test --test-name-pattern='@claim:pack-artifacts' tests/claims.test.mjs",
-    "sandbox": "CLI demo output; assert three artifacts, CPACK format, no plaintext sample records in ciphertext, readable manifest, and receipt SHA-256."
+    "sandbox": "CLI demo output; assert three artifacts, CPACK format, no plaintext sample records in ciphertext, exact manifest handoff fields, and receipt SHA-256."
   },
   {
     "id": "authenticated-encryption",
@@ -57,10 +57,24 @@
   },
   {
     "id": "passphrase-sources",
-    "claim": "The CLI accepts passphrases from a file, environment variable, hidden prompt, or supported OS keychain.",
+    "claim": "The CLI accepts passphrases from a file, environment variable, hidden prompt, or supported OS keychain without writing them into configuration or recovery artifacts.",
     "where": "home feature ledger, privacy page, README",
     "test": "node --test --test-name-pattern='@claim:passphrase-sources' tests/claims.test.mjs",
-    "sandbox": "Verify through a mode-0600 file, an environment value, a hidden pseudo-terminal prompt, and a fixture Linux Secret Service lookup; assert every source decrypts the sample."
+    "sandbox": "Verify through a mode-0600 file, environment value, hidden pseudo-terminal prompt, and fixture Linux Secret Service lookup; scan generated configuration, artifacts, stdout, and stderr for a canary passphrase."
+  },
+  {
+    "id": "schedule-preview",
+    "claim": "The schedule command prints a daily check entry for review without installing it.",
+    "where": "README scheduling section",
+    "test": "node --test --test-name-pattern='@claim:schedule-preview' tests/claims.test.mjs",
+    "sandbox": "Fresh target directory and a crontab trap; run schedule without --install, assert preview status and exact target/time, and assert no crontab command is invoked."
+  },
+  {
+    "id": "license-restoration",
+    "claim": "A buyer can save, recheck, and remove a Continuity Plus license on the product site.",
+    "where": "home Plus section and README",
+    "test": "npm run build:site && npx playwright test --grep '@claim:license-restoration'",
+    "sandbox": "Fresh browser storage with recorded valid and invalid verification responses; save a token, reload its cached state, check failure copy, remove it, and assert both saved keys are absent."
   },
   {
     "id": "offline-guide",

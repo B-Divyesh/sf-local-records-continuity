@@ -4,7 +4,8 @@
 
 - CLI: `continuity demo` or `continuity --demo`
 - JSON: `continuity --json demo`
-- Browser preview: <https://local-records-continuity.sociobot.in/demo/>
+- Browser preview: <https://local-records-continuity.sociobot.in/demo/?demo=1>
+- Root shortcut: <https://local-records-continuity.sociobot.in/?demo=1>
 
 The home page links to the browser preview with **Try it with sample data**.
 The preview names the real CLI command and shows the same three stages.
@@ -30,10 +31,11 @@ only inside that directory. It never reads the caller's records or uses the
 normal configuration. The output prints the exact workspace path. Delete that
 directory to reset or discard the run; the next command creates a new one.
 
-The browser preview does not read or write localStorage, IndexedDB, OPFS, or
-the real application’s session-storage namespace. It uses only the
-`demo:continuity-offline` session key for its offline indicator. After its first
-direct visit, the sample preview and full Home guide can reload offline. **Reset
-demo** returns its transcript to the Pack stage. **Start for real** returns to
-the installation guide. The browser preview is a recording; the CLI command
-performs the real pack, newest-pack check, and restore operations.
+The browser preview does not read or write IndexedDB, OPFS, or any real-data
+storage key. It uses only `demo:*` session keys for its offline indicator and
+temporary demo state. The root shortcut redirects before license code runs.
+After the first visit, the preview and Home guide can reload offline. **Reset
+demo** removes every `demo:*` key and returns the transcript to Pack. **Start
+for real** removes demo state and opens the installation guide. The browser
+preview is a recording. The CLI command performs the real pack, newest-pack
+check, and restore operations.
