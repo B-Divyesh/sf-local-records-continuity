@@ -1,3 +1,35 @@
+# Continuity Pack review-1 handoff — FAIL
+
+- Date: 2026-08-30
+- Work order: `local-records-continuity-review-1`
+- Candidate: `b185f8a69879095496d95e6b6af6a5767cac76a7`
+- Review: [`.factory/review-1.md`](review-1.md)
+
+The adversarial first-read review found 28 issues. F-1-1 and F-1-2 are
+blocking: the Home primary-action label falls below a 1440×844 first screen,
+and the 390×844 Demo first screen places realistic sample output below the
+fold. The claim manifest also omits reliance-worthy landing/README statements;
+copy, 404 metadata, and route-focus findings remain. No product code was
+changed.
+
+Verification completed:
+
+- All 14 exact `.factory/claims.json` commands passed from a clean local clone.
+- `npm test` passed: 6 library, 2 binary, 7 CLI integration, 1 doctest, 8 claim,
+  10 API, and 30 browser tests passed; 6 deployment-only cases skipped.
+- `npm run build` passed and produced `dist/site/`.
+- Live Home/Demo request logs were same-origin only; demo storage sentinels were
+  unchanged; Reset and Start for real worked.
+- A CLI demo from a fresh temporary caller returned three verified files and
+  left the caller directory empty.
+- Live route/link/metadata/Axe/keyboard/mobile checks are recorded in the
+  review. A single live Chromium process crash passed on isolated rerun.
+
+Next: repair every finding in `.factory/review-1.md`, add the missing claim
+entries/tests, and rerun the complete checklist from a fresh context.
+
+---
+
 # Continuity Pack verification handoff — PASS
 
 ## Independent verification 8
