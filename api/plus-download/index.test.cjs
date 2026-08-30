@@ -1,13 +1,17 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { execFile } = require("node:child_process");
+const { promisify } = require("node:util");
 const plusDownload = require("./index.js");
+
+const execFileAsync = promisify(execFile);
 
 function context() {
   return { log: { warn() {} }, res: undefined };
 }
 
-test.beforeEach(() => {
-  plusDownload.resetRateLimitForTests();
+test.beforeEach(async () => {
+  await plusDownload.resetRateLimitForTests();
 });
 
 test("rejects every advertised download without a bearer license", async () => {
@@ -103,6 +107,25 @@ test("rate limits authenticated bursts before upstream verification", async (t) 
     assert.equal(res.headers["Cache-Control"], "no-store");
     assert.deepEqual(res.body, { error: "too many protected-download requests; try again shortly" });
   }
+});
+
+test("shared rate-limit state survives isolated function worker processes", async () => {
+  const handlerPath = require.resolve("./index.js");
+  const invocation = `
+    const handler = require(${JSON.stringify(handlerPath)});
+    const context = { log: { warn() {} } };
+    handler(context, {
+      query: { asset: "quarterly-restore-drill.md" },
+      headers: { "x-azure-clientip": "198.51.100.55" }
+    }).then(() => process.stdout.write(String(context.res.status)));
+  `;
+  const responses = await Promise.all(Array.from({ length: 21 }, async () => {
+    const { stdout } = await execFileAsync(process.execPath, ["-e", invocation]);
+    return Number.parseInt(stdout, 10);
+  }));
+
+  assert.equal(responses.filter((status) => status === 401).length, 20);
+  assert.equal(responses.filter((status) => status === 429).length, 1);
 });
 
 test("rate-limit retry timing resets accurately and clients have separate windows", () => {

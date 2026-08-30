@@ -1,9 +1,17 @@
 "use strict";
 
+const { createHash, randomUUID } = require("node:crypto");
+const { mkdir, readFile, rename, rmdir, stat, unlink, writeFile } = require("node:fs/promises");
+const { tmpdir } = require("node:os");
+const { join } = require("node:path");
+
 const VERIFY_URL = "https://api.sociobot.in/api/v1/products/local-records-continuity/verify";
 const RATE_LIMIT_MAX_REQUESTS = 20;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const MAX_RATE_LIMIT_CLIENTS = 10_000;
+const RATE_LIMIT_LOCK_TIMEOUT_MS = 2_000;
+const RATE_LIMIT_LOCK_STALE_MS = 10_000;
+const RATE_LIMIT_STATE_PATH = join(tmpdir(), "continuity-plus-download-rate-limit-v1.json");
 const ASSETS = Object.freeze({
   "multi-location-config.toml": {
     type: "application/toml; charset=utf-8",
@@ -116,6 +124,115 @@ function createRateLimiter({
   };
 }
 
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function rateLimitClientId(client) {
+  // The short-lived state file stores a one-way hash, never a raw IP address.
+  return createHash("sha256").update(client).digest("hex");
+}
+
+function pruneRateLimitState(state, currentTime) {
+  for (const [client, entry] of Object.entries(state)) {
+    if (!entry || typeof entry.count !== "number" || typeof entry.resetAt !== "number" || entry.resetAt <= currentTime) {
+      delete state[client];
+    }
+  }
+  const overflow = Object.keys(state).length - MAX_RATE_LIMIT_CLIENTS;
+  if (overflow > 0) {
+    Object.entries(state)
+      .sort(([, left], [, right]) => left.resetAt - right.resetAt)
+      .slice(0, overflow)
+      .forEach(([client]) => delete state[client]);
+  }
+}
+
+async function acquireFileLock(lockPath, now = () => Date.now()) {
+  const deadline = now() + RATE_LIMIT_LOCK_TIMEOUT_MS;
+  while (now() < deadline) {
+    try {
+      await mkdir(lockPath);
+      return async () => { await rmdir(lockPath).catch(() => {}); };
+    } catch (error) {
+      if (!error || error.code !== "EEXIST") throw error;
+      try {
+        const lock = await stat(lockPath);
+        if (now() - lock.mtimeMs > RATE_LIMIT_LOCK_STALE_MS) await rmdir(lockPath).catch(() => {});
+      } catch (lockError) {
+        if (!lockError || lockError.code !== "ENOENT") throw lockError;
+      }
+      await wait(5);
+    }
+  }
+  throw new Error("protected-download rate-limit state is busy");
+}
+
+function createSharedRateLimiter({
+  statePath = RATE_LIMIT_STATE_PATH,
+  now = () => Date.now()
+} = {}) {
+  const lockPath = `${statePath}.lock`;
+
+  async function readState() {
+    try {
+      const parsed = JSON.parse(await readFile(statePath, "utf8"));
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch (error) {
+      if (error && error.code === "ENOENT") return {};
+      return {};
+    }
+  }
+
+  async function writeState(state) {
+    const temporaryPath = `${statePath}.${process.pid}.${randomUUID()}.tmp`;
+    await writeFile(temporaryPath, JSON.stringify(state), { mode: 0o600 });
+    await rename(temporaryPath, statePath);
+  }
+
+  return {
+    async take(client) {
+      const release = await acquireFileLock(lockPath, now);
+      try {
+        const currentTime = now();
+        const state = await readState();
+        pruneRateLimitState(state, currentTime);
+        const clientId = rateLimitClientId(client);
+        let entry = state[clientId];
+        if (!entry || entry.resetAt <= currentTime) {
+          entry = { count: 0, resetAt: currentTime + RATE_LIMIT_WINDOW_MS };
+          state[clientId] = entry;
+        }
+
+        let result;
+        if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+          result = {
+            allowed: false,
+            retryAfterSeconds: Math.max(1, Math.ceil((entry.resetAt - currentTime) / 1000))
+          };
+        } else {
+          entry.count += 1;
+          result = { allowed: true };
+        }
+        await writeState(state);
+        return result;
+      } finally {
+        await release();
+      }
+    },
+    async reset() {
+      const release = await acquireFileLock(lockPath, now);
+      try {
+        await unlink(statePath).catch((error) => {
+          if (!error || error.code !== "ENOENT") throw error;
+        });
+      } finally {
+        await release();
+      }
+    }
+  };
+}
+
 function headerValue(headers, name) {
   const value = headers?.[name] ?? headers?.[name.toLowerCase()] ?? headers?.[name.toUpperCase()];
   return Array.isArray(value) ? value[0] : value;
@@ -133,7 +250,7 @@ function clientKey(req) {
   return "unknown-client";
 }
 
-const downloadRateLimiter = createRateLimiter();
+const downloadRateLimiter = createSharedRateLimiter();
 
 function response(status, body, headers = {}) {
   return {
@@ -148,7 +265,17 @@ function response(status, body, headers = {}) {
 }
 
 module.exports = async function plusDownload(context, req) {
-  const rateLimit = downloadRateLimiter.take(clientKey(req));
+  let rateLimit;
+  try {
+    rateLimit = await downloadRateLimiter.take(clientKey(req));
+  } catch (error) {
+    context.log.warn("Continuity Plus rate limit unavailable", error instanceof Error ? error.message : String(error));
+    context.res = response(503, { error: "protected download is temporarily unavailable" }, {
+      "Content-Type": "application/json",
+      "Retry-After": "1"
+    });
+    return;
+  }
   if (!rateLimit.allowed) {
     context.res = response(429, { error: "too many protected-download requests; try again shortly" }, {
       "Content-Type": "application/json",
@@ -196,4 +323,5 @@ module.exports = async function plusDownload(context, req) {
 
 module.exports.ASSETS = ASSETS;
 module.exports.createRateLimiter = createRateLimiter;
+module.exports.createSharedRateLimiter = createSharedRateLimiter;
 module.exports.resetRateLimitForTests = () => downloadRateLimiter.reset();
