@@ -258,6 +258,7 @@ function response(status, body, headers = {}) {
     headers: {
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
+      "RateLimit-Policy": `${RATE_LIMIT_MAX_REQUESTS};w=${RATE_LIMIT_WINDOW_MS / 1000}`,
       ...headers
     },
     body

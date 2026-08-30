@@ -20,6 +20,7 @@ test("rejects every advertised download without a bearer license", async () => {
     await plusDownload(ctx, { query: { asset }, headers: {} });
     assert.equal(ctx.res.status, 401, asset);
     assert.equal(ctx.res.headers["Cache-Control"], "no-store", asset);
+    assert.equal(ctx.res.headers["RateLimit-Policy"], "20;w=60", asset);
     assert.doesNotMatch(JSON.stringify(ctx.res.body), new RegExp(paidContent.body.slice(0, 24)), asset);
   }
 });
