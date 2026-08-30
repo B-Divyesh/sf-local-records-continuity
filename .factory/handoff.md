@@ -48,7 +48,10 @@ Final results:
 - CLI claims: 9 passed.
 - Managed API: 10 passed.
 - Local browser: 36 passed; 6 deployment-only/project-scope cases skipped.
-- Live browser: 40 passed; 2 project-scope cases skipped.
+- Live browser: all 40 applicable cases passed; 2 project-scope cases skipped.
+  One Chromium process crashed during the final combined run. Its exact case
+  passed immediately in an isolated rerun; this was a runner failure, not a
+  page assertion failure.
 - Production rate limit: 60 concurrent requests produced 20 `403` and 40
   `429`, with `Retry-After`.
 - `npm run build`: passed; produced `dist/site/index.html` and

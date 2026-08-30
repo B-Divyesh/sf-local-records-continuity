@@ -55,13 +55,15 @@ test rotates one license across six addresses. After redeployment,
 
 - Clean clone at final code commit: all 16 commands in `.factory/claims.json`
   passed; `npm test` passed 16 Rust/doc tests, 9 CLI claim tests, 10 API tests,
-  and 34 local browser tests with 6 deployment-only skips.
+  and 36 local browser tests with 6 deployment-only skips.
 - `npm run build` produced `dist/site/` and `target/release/continuity`.
 - Initial payload: 6.90 KB JS home entry, 2.71 KB shared JS, 16.61 KB CSS
   uncompressed; all are far below budget.
 - Lighthouse 12.8.2: 100 performance, 100 accessibility, 100 best practices,
   100 SEO (`.factory/evidence/lighthouse-summary.json`).
-- Live Playwright: 38 passed, 2 deliberate project-scope skips.
+- Live Playwright: all 40 applicable cases passed with 2 deliberate
+  project-scope skips. One Chromium process crashed in the final combined run;
+  its exact case passed immediately in an isolated rerun.
 - Live verifier: `.factory/evidence/live-home/verify.json` and
   `.factory/evidence/live-demo/verify.json`; both report zero console errors.
 - Cold live routes: `/`, `/demo/?demo=1`, `/privacy/`, and `/terms/` return 200;
