@@ -1,4 +1,24 @@
-# Continuity Pack — polish round 1 handoff
+# Continuity Pack — verification 9 handoff
+
+## Release status: FAIL
+
+Candidate `461981a1524997439ec7238b9173c14b61adc426` at
+<https://local-records-continuity.sociobot.in> is **not releasable**. The
+independent verifier ran all 16 declared claim commands first, the complete
+test/build/package/live suite, and deployed API/PWA checks. Functional checks
+passed, but `cargo fmt --all -- --check` fails on
+`crates/continuity/src/main.rs:680`. This available formatting gate is required
+by the factory contract. Run `cargo fmt --all`, commit the formatting-only
+change, and rerun the verification commands recorded in
+`.factory/verification-9.md`.
+
+Verification 9 evidence and the exact passing checks are in
+`.factory/verification-9.md`. This status supersedes the historical polish
+handoff below.
+
+---
+
+# Historical polish round 1 handoff
 
 Date: 2026-08-30
 
