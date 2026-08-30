@@ -68,7 +68,7 @@ test("@claim:protected-download-rate-limit limits the verifier's exact 60-reques
     const ctx = context();
     await plusDownload(ctx, {
       query: { asset: "quarterly-restore-drill.md" },
-      headers: { "x-forwarded-for": "198.51.100.4:41732, 203.0.113.44:443" }
+      headers: { "x-azure-clientip": "203.0.113.44:443" }
     });
     return ctx.res;
   }));
@@ -94,7 +94,7 @@ test("rate limits authenticated bursts before upstream verification", async (t) 
     const ctx = context();
     await plusDownload(ctx, {
       query: { asset: "quarterly-restore-drill.md" },
-      headers: { authorization: "Bearer valid-token", "x-forwarded-for": "198.51.100.4:41732, 203.0.113.44:443" }
+      headers: { authorization: "Bearer valid-token", "x-azure-clientip": "203.0.113.44:443" }
     });
     return ctx.res;
   }));
@@ -117,7 +117,7 @@ test("shared rate-limit state survives isolated function worker processes", asyn
     const context = { log: { warn() {} } };
     handler(context, {
       query: { asset: "quarterly-restore-drill.md" },
-      headers: { "x-forwarded-for": "192.0.2.99:49152, 198.51.100.55:443" }
+      headers: { "x-azure-clientip": "198.51.100.55:443" }
     }).then(() => process.stdout.write(String(context.res.status)));
   `;
   const responses = await Promise.all(Array.from({ length: 21 }, async () => {

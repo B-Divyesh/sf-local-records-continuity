@@ -248,16 +248,15 @@ function normalizedClientAddress(value) {
 }
 
 function clientKey(req) {
-  // Azure's reverse proxy appends the actual source address to X-Forwarded-For.
-  // Use that final value so a caller cannot select the rate-limit bucket with a
-  // prepended header, and normalize connection-specific ports away.
-  const forwarded = headerValue(req.headers, "x-forwarded-for");
-  if (typeof forwarded === "string" && forwarded.trim()) return normalizedClientAddress(forwarded.split(",").at(-1));
-
-  // Local function hosts and other standard reverse proxies may not send XFF.
-  // Azure provides this fallback at its platform edge.
+  // Azure supplies the client address at its platform edge. It includes a
+  // transient source port in this deployment, so normalize the address first.
   const azureClientIp = headerValue(req.headers, "x-azure-clientip");
   if (typeof azureClientIp === "string" && azureClientIp.trim()) return normalizedClientAddress(azureClientIp);
+
+  // Local function hosts and other reverse proxies may not send the Azure
+  // header. Their final forwarded entry is the best available fallback.
+  const forwarded = headerValue(req.headers, "x-forwarded-for");
+  if (typeof forwarded === "string" && forwarded.trim()) return normalizedClientAddress(forwarded.split(",").at(-1));
 
   return "unknown-client";
 }
