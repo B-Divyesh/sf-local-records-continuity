@@ -112,18 +112,18 @@ test("@claim:protected-download-rate-limit limits the verifier's exact 60-reques
   }
 });
 
-test("rate limits authenticated bursts before upstream verification", async (t) => {
+test("rate limits one license across changing network addresses before upstream verification", async (t) => {
   let verificationCalls = 0;
   t.mock.method(global, "fetch", async () => {
     verificationCalls += 1;
     return { ok: true, json: async () => ({ valid: true, reason: "ok" }) };
   });
 
-  const responses = await Promise.all(Array.from({ length: 60 }, async () => {
+  const responses = await Promise.all(Array.from({ length: 60 }, async (_, index) => {
     const ctx = context();
     await plusDownload(ctx, {
       query: { asset: "quarterly-restore-drill.md" },
-      headers: { "x-continuity-license": "valid-token", "x-azure-clientip": "203.0.113.44:443" }
+      headers: { "x-continuity-license": "valid-token", "x-azure-clientip": `203.0.113.${index % 6 + 40}:${4000 + index}` }
     });
     return ctx.res;
   }));

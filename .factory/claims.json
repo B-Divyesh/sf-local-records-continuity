@@ -92,10 +92,10 @@
   },
   {
     "id": "protected-download-rate-limit",
-    "claim": "Protected Plus downloads admit at most 20 requests per client in a fixed 60-second window across deployed workers.",
+    "claim": "Protected Plus downloads admit at most 20 requests per client license or anonymous network address in a fixed 60-second window across deployed workers.",
     "where": "protected download API response policy and privacy page",
     "test": "npm run test:claim:protected-download-rate-limit",
-    "sandbox": "60 concurrent POST requests plus a six-worker Azure Blob atomic-append simulation; exactly 20 are admitted and 40 return 429 with Retry-After."
+    "sandbox": "60 concurrent POST requests plus a six-worker Azure Blob atomic-append simulation; one license crosses six network addresses; exactly 20 are admitted and 40 return 429 with Retry-After."
   },
   {
     "id": "licensed-download",

@@ -216,6 +216,15 @@ function clientKey(req) {
   return "unknown-client";
 }
 
+function rateLimitIdentity(req) {
+  // A paid client may move between network paths during one burst. The license
+  // token is the stable client identity in that case; only its hash reaches
+  // shared rate-limit storage. Anonymous requests fall back to the edge IP.
+  const license = headerValue(req.headers, LICENSE_HEADER);
+  const token = typeof license === "string" ? license.trim() : "";
+  return token ? `license:${token}` : `address:${clientKey(req)}`;
+}
+
 const downloadRateLimiter = RATE_LIMIT_BLOB_BASE_URL
   ? createAzureBlobRateLimiter({ baseUrl: RATE_LIMIT_BLOB_BASE_URL })
   : createRateLimiter();
@@ -239,7 +248,7 @@ function response(status, body, headers = {}) {
 module.exports = async function plusDownload(context, req) {
   let rateLimit;
   try {
-    rateLimit = await downloadRateLimiter.take(clientKey(req));
+    rateLimit = await downloadRateLimiter.take(rateLimitIdentity(req));
   } catch (error) {
     context.log.warn("Continuity Plus rate limit unavailable", error instanceof Error ? error.message : String(error));
     context.res = response(503, { error: "protected download is temporarily unavailable" }, {
@@ -297,4 +306,5 @@ module.exports.API_BUILD = API_BUILD;
 module.exports.LICENSE_HEADER = LICENSE_HEADER;
 module.exports.createRateLimiter = createRateLimiter;
 module.exports.createAzureBlobRateLimiter = createAzureBlobRateLimiter;
+module.exports.rateLimitIdentity = rateLimitIdentity;
 module.exports.resetRateLimitForTests = () => downloadRateLimiter.reset();
