@@ -9,5 +9,6 @@ test("managed API exposes a stable candidate identity", async () => {
   assert.equal(context.res.headers["Cache-Control"], "no-store");
   assert.equal(context.res.headers["X-Continuity-API-Build"], buildIdentity.BUILD.release);
   assert.deepEqual(context.res.body, buildIdentity.BUILD);
+  assert.equal(context.res.body.release, "local-records-continuity-repair-8");
   assert.equal(context.res.body.license_header, "x-continuity-license");
 });
