@@ -1,8 +1,8 @@
 import test, { before } from "node:test";
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -22,6 +22,41 @@ async function demo() {
 
 async function removeDemo(result) {
   await rm(result.workspace, { recursive: true, force: true });
+}
+
+function shellQuote(value) {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+async function verifyThroughHiddenPrompt(pack, passphrase, env) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const command = `${shellQuote(binary)} --json verify ${shellQuote(pack)}`;
+    const child = spawn("script", ["--quiet", "--return", "--echo", "never", "--command", command, "/dev/null"], { env });
+    let output = "";
+    let sent = false;
+    const timeout = setTimeout(() => {
+      child.kill();
+      rejectPromise(new Error(`hidden passphrase prompt timed out: ${output}`));
+    }, 10_000);
+    const collect = (chunk) => {
+      output += chunk.toString();
+      if (!sent && output.includes("Pack passphrase:")) {
+        sent = true;
+        child.stdin.write(`${passphrase}\n`);
+      }
+    };
+    child.stdout.on("data", collect);
+    child.stderr.on("data", collect);
+    child.on("error", (error) => {
+      clearTimeout(timeout);
+      rejectPromise(error);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      if (code === 0) resolvePromise(output);
+      else rejectPromise(new Error(`hidden passphrase prompt exited ${code}: ${output}`));
+    });
+  });
 }
 
 test("@claim:demo-sandbox uses bundled data in a fresh temporary workspace", async () => {
@@ -109,7 +144,7 @@ test("@claim:explicit-local-target makes no network call and requires a named ta
   }
 });
 
-test("@claim:loud-scheduled-check exits non-zero when the target is unavailable", async () => {
+test("@claim:loud-scheduled-check reports unavailable, stale, corrupt, and unreadable targets", async () => {
   const missing = join(tmpdir(), `continuity-missing-target-${process.pid}-${Date.now()}`);
   await assert.rejects(
     execFileAsync(binary, ["--ci", "check", "--target", missing], {
@@ -117,6 +152,35 @@ test("@claim:loud-scheduled-check exits non-zero when the target is unavailable"
     }),
     (error) => error.code === 3 && /target is unavailable/.test(error.stderr)
   );
+
+  const result = await demo();
+  const target = join(result.workspace, "target");
+  try {
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
+    await assert.rejects(
+      execFileAsync(binary, ["--ci", "check", "--target", target, "--max-age-hours", "0"], {
+        env: { ...process.env, CONTINUITY_PASSPHRASE: demoPassphrase }
+      }),
+      (error) => error.code === 4 && /--max-age-hours 0 allows no elapsed time/.test(error.stderr)
+    );
+    await assert.rejects(
+      execFileAsync(binary, ["--ci", "check", "--target", target], {
+        env: { ...process.env, CONTINUITY_PASSPHRASE: "wrong-passphrase-for-unreadable-pack" }
+      }),
+      (error) => error.code === 4 && /authentication failed/.test(error.stderr)
+    );
+    const bytes = await readFile(result.target_pack);
+    bytes[bytes.length - 1] ^= 0xff;
+    await writeFile(result.target_pack, bytes);
+    await assert.rejects(
+      execFileAsync(binary, ["--ci", "check", "--target", target], {
+        env: { ...process.env, CONTINUITY_PASSPHRASE: demoPassphrase }
+      }),
+      (error) => error.code === 4 && /does not match its receipt|authentication failed/.test(error.stderr)
+    );
+  } finally {
+    await removeDemo(result);
+  }
 });
 
 test("@claim:restore-integrity restores all sample bytes and a report", async () => {
@@ -152,9 +216,11 @@ test("@claim:free-core-and-json runs the complete sample without a license and r
   }
 });
 
-test("@claim:passphrase-sources accepts a file or environment value and exposes keychain status safely", async () => {
+test("@claim:passphrase-sources accepts a file, environment value, hidden prompt, and OS keychain", async () => {
   const result = await demo();
   const passphraseFile = join(result.workspace, "demo-passphrase.txt");
+  const keychainBin = join(result.workspace, "keychain-bin");
+  const secretTool = join(keychainBin, "secret-tool");
   try {
     await writeFile(passphraseFile, `${demoPassphrase}\n`, { mode: 0o600 });
     const fromFile = await execFileAsync(binary, ["--ci", "--json", "--passphrase-file", passphraseFile, "verify", result.target_pack], {
@@ -165,8 +231,30 @@ test("@claim:passphrase-sources accepts a file or environment value and exposes 
       env: { PATH: process.env.PATH ?? "", CONTINUITY_PASSPHRASE: demoPassphrase }
     });
     assert.equal(JSON.parse(fromEnvironment.stdout).authenticated, true);
-    const keyStatus = await execFileAsync(binary, ["--ci", "--json", "key", "status"], { env: { PATH: process.env.PATH ?? "" } });
-    assert.equal(typeof JSON.parse(keyStatus.stdout).available, "boolean");
+
+    await mkdir(keychainBin);
+    await writeFile(secretTool, "#!/bin/sh\nif [ \"$CONTINUITY_TEST_KEYCHAIN\" = found ] && [ \"$1\" = lookup ]; then printf %s 'maple-street-books-demo-only'; exit 0; fi\nexit 1\n");
+    await chmod(secretTool, 0o700);
+    const { CONTINUITY_PASSPHRASE: ignored, ...environmentWithoutPassphrase } = process.env;
+    void ignored;
+    const fixturePath = `${keychainBin}:${process.env.PATH ?? ""}`;
+
+    const prompted = await verifyThroughHiddenPrompt(result.target_pack, demoPassphrase, {
+      ...environmentWithoutPassphrase,
+      PATH: fixturePath,
+      CONTINUITY_TEST_KEYCHAIN: "missing"
+    });
+    assert.match(prompted, /"authenticated":true/);
+    assert.doesNotMatch(prompted, new RegExp(demoPassphrase));
+
+    const fromKeychain = await execFileAsync(binary, ["--ci", "--json", "verify", result.target_pack], {
+      env: {
+        ...environmentWithoutPassphrase,
+        PATH: fixturePath,
+        CONTINUITY_TEST_KEYCHAIN: "found"
+      }
+    });
+    assert.equal(JSON.parse(fromKeychain.stdout).authenticated, true);
   } finally {
     await removeDemo(result);
   }

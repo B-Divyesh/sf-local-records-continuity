@@ -148,8 +148,8 @@ Release builds use the production Sociobot API by default; explicitly set
 `VITE_BILLING_API_BASE=https://pilot-api.sociobot.in/api/v1` only for staging.
 The managed download function uses `RATE_LIMIT_BLOB_BASE_URL`, a private
 container SAS limited to create, add, and write permissions. Production keeps
-that value in Static Web App settings, never in source control. The storage
-lifecycle policy marks rate-counter append blobs for deletion after one day.
+that value in Static Web App settings, never in source control. Each fixed
+one-minute window uses a separate append blob counter.
 
 ## Repository map
 

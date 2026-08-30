@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { access } = require("node:fs/promises");
 const plusDownload = require("./index.js");
 
 function context() {
@@ -10,7 +11,7 @@ test.beforeEach(async () => {
   await plusDownload.resetRateLimitForTests();
 });
 
-test("rejects every advertised download without a bearer license", async () => {
+test("rejects every advertised download without a product license header", async () => {
   for (const [asset, paidContent] of Object.entries(plusDownload.ASSETS)) {
     const ctx = context();
     await plusDownload(ctx, { query: { asset }, headers: {} });
@@ -24,29 +25,61 @@ test("rejects every advertised download without a bearer license", async () => {
 test("rejects an invalid license without returning paid content", async (t) => {
   t.mock.method(global, "fetch", async () => ({ ok: true, json: async () => ({ valid: false, reason: "invalid" }) }));
   const ctx = context();
-  await plusDownload(ctx, { query: { asset: "quarterly-restore-drill.md" }, headers: { authorization: "Bearer bad-token" } });
+  await plusDownload(ctx, { query: { asset: "quarterly-restore-drill.md" }, headers: { "x-continuity-license": "bad-token" } });
   assert.equal(ctx.res.status, 403);
   assert.deepEqual(ctx.res.body, { error: "license is not active" });
 });
 
-test("returns the requested file only after a valid live verification", async (t) => {
-  let verificationUrl = "";
+test("@claim:licensed-download returns field-kit files only after an active check and never ships them publicly", async (t) => {
+  const verificationUrls = [];
   t.mock.method(global, "fetch", async (url) => {
-    verificationUrl = String(url);
-    return { ok: true, json: async () => ({ valid: true, reason: "ok" }) };
+    verificationUrls.push(String(url));
+    return {
+      ok: true,
+      json: async () => ({ valid: String(url).endsWith("license=valid%20token"), reason: "fixture" })
+    };
   });
-  const ctx = context();
-  await plusDownload(ctx, { query: { asset: "quarterly-restore-drill.md" }, headers: { authorization: "Bearer valid token" } });
-  assert.equal(ctx.res.status, 200);
-  assert.match(ctx.res.body, /Quarterly restore drill/);
-  assert.equal(ctx.res.headers["Content-Disposition"], 'attachment; filename="quarterly-restore-drill.md"');
-  assert.match(verificationUrl, /verify\?license=valid%20token$/);
+
+  const missing = context();
+  await plusDownload(missing, { query: { asset: "quarterly-restore-drill.md" }, headers: {} });
+  assert.equal(missing.res.status, 401);
+  assert.doesNotMatch(JSON.stringify(missing.res.body), /Quarterly restore drill/);
+
+  const gatewayReservedHeader = context();
+  await plusDownload(gatewayReservedHeader, {
+    query: { asset: "quarterly-restore-drill.md" },
+    headers: { authorization: "Bearer valid token" }
+  });
+  assert.equal(gatewayReservedHeader.res.status, 401, "the managed API must not rely on SWA's reserved Authorization header");
+
+  const invalid = context();
+  await plusDownload(invalid, {
+    query: { asset: "quarterly-restore-drill.md" },
+    headers: { "x-continuity-license": "invalid-token" }
+  });
+  assert.equal(invalid.res.status, 403);
+  assert.doesNotMatch(JSON.stringify(invalid.res.body), /Quarterly restore drill/);
+
+  const valid = context();
+  await plusDownload(valid, {
+    query: { asset: "quarterly-restore-drill.md" },
+    headers: { "X-Continuity-License": "valid token" }
+  });
+  assert.equal(valid.res.status, 200);
+  assert.match(valid.res.body, /Quarterly restore drill/);
+  assert.equal(valid.res.headers["Content-Disposition"], 'attachment; filename="quarterly-restore-drill.md"');
+  assert.equal(valid.res.headers["X-Continuity-API-Build"], "local-records-continuity-repair-7");
+  assert.deepEqual(verificationUrls.map((url) => new URL(url).searchParams.get("license")), ["invalid-token", "valid token"]);
+
+  for (const asset of Object.keys(plusDownload.ASSETS)) {
+    await assert.rejects(access(`dist/site/plus/${asset}`), (error) => error.code === "ENOENT", asset);
+  }
 });
 
 test("fails closed when live verification is unavailable", async (t) => {
   t.mock.method(global, "fetch", async () => ({ ok: false, status: 503 }));
   const ctx = context();
-  await plusDownload(ctx, { query: { asset: "team-handoff-checklist.md" }, headers: { authorization: "Bearer unverified-token" } });
+  await plusDownload(ctx, { query: { asset: "team-handoff-checklist.md" }, headers: { "x-continuity-license": "unverified-token" } });
   assert.equal(ctx.res.status, 503);
   assert.equal(ctx.res.headers["Cache-Control"], "no-store");
   assert.deepEqual(ctx.res.body, { error: "license verification is temporarily unavailable" });
@@ -55,7 +88,7 @@ test("fails closed when live verification is unavailable", async (t) => {
 
 test("does not expose unknown files even with a token", async () => {
   const ctx = context();
-  await plusDownload(ctx, { query: { asset: "../../secret" }, headers: { authorization: "Bearer token" } });
+  await plusDownload(ctx, { query: { asset: "../../secret" }, headers: { "x-continuity-license": "token" } });
   assert.equal(ctx.res.status, 404);
 });
 
@@ -90,7 +123,7 @@ test("rate limits authenticated bursts before upstream verification", async (t) 
     const ctx = context();
     await plusDownload(ctx, {
       query: { asset: "quarterly-restore-drill.md" },
-      headers: { authorization: "Bearer valid-token", "x-azure-clientip": "203.0.113.44:443" }
+      headers: { "x-continuity-license": "valid-token", "x-azure-clientip": "203.0.113.44:443" }
     });
     return ctx.res;
   }));

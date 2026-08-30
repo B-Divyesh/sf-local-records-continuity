@@ -7,6 +7,8 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const MAX_RATE_LIMIT_CLIENTS = 10_000;
 const RATE_LIMIT_BLOB_BASE_URL = process.env.RATE_LIMIT_BLOB_BASE_URL;
+const API_BUILD = "local-records-continuity-repair-7";
+const LICENSE_HEADER = "x-continuity-license";
 const ASSETS = Object.freeze({
   "multi-location-config.toml": {
     type: "application/toml; charset=utf-8",
@@ -186,7 +188,8 @@ function createAzureBlobRateLimiter({
 }
 
 function headerValue(headers, name) {
-  const value = headers?.[name] ?? headers?.[name.toLowerCase()] ?? headers?.[name.toUpperCase()];
+  const entry = Object.entries(headers ?? {}).find(([key]) => key.toLowerCase() === name.toLowerCase());
+  const value = entry?.[1];
   return Array.isArray(value) ? value[0] : value;
 }
 
@@ -224,6 +227,7 @@ function response(status, body, headers = {}) {
     headers: {
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
+      "X-Continuity-API-Build": API_BUILD,
       "RateLimit-Policy": `${RATE_LIMIT_MAX_REQUESTS};w=${RATE_LIMIT_WINDOW_MS / 1000}`,
       "RateLimit-Backend": rateLimitBackend,
       ...headers
@@ -259,9 +263,8 @@ module.exports = async function plusDownload(context, req) {
     return;
   }
 
-  const authorization = req.headers?.authorization ?? req.headers?.Authorization ?? "";
-  const match = /^Bearer\s+(.+)$/i.exec(authorization);
-  const token = match?.[1]?.trim();
+  const license = headerValue(req.headers, LICENSE_HEADER);
+  const token = typeof license === "string" ? license.trim() : "";
   if (!token) {
     context.res = response(401, { error: "a Continuity Plus license is required" }, { "Content-Type": "application/json" });
     return;
@@ -290,6 +293,8 @@ module.exports = async function plusDownload(context, req) {
 };
 
 module.exports.ASSETS = ASSETS;
+module.exports.API_BUILD = API_BUILD;
+module.exports.LICENSE_HEADER = LICENSE_HEADER;
 module.exports.createRateLimiter = createRateLimiter;
 module.exports.createAzureBlobRateLimiter = createAzureBlobRateLimiter;
 module.exports.resetRateLimitForTests = () => downloadRateLimiter.reset();

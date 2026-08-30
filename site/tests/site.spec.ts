@@ -4,6 +4,24 @@ import { access, readFile } from "node:fs/promises";
 
 const expectedOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4173").origin;
 
+function contrastRatio(foreground: string, background: string): number {
+  const channels = (value: string) => {
+    const values = value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+    if (!values || values.length !== 3) throw new Error(`Unsupported color: ${value}`);
+    return values.map((channel) => {
+      const normalized = channel / 255;
+      return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+    });
+  };
+  const luminance = (color: string) => {
+    const [red, green, blue] = channels(color);
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  };
+  const light = Math.max(luminance(foreground), luminance(background));
+  const dark = Math.min(luminance(foreground), luminance(background));
+  return (light + 0.05) / (dark + 0.05);
+}
+
 test("home has a complete accessible route with no console errors", async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
@@ -18,6 +36,20 @@ test("home has a complete accessible route with no console errors", async ({ pag
   expect(errors).toEqual([]);
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
+});
+
+test("desktop first screen keeps the audience, sample action, explanation, and facts in view", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Desktop first-read regression.");
+  for (const viewport of [{ width: 1280, height: 720 }, { width: 1366, height: 768 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    for (const selector of [".lede", ".hero-actions .button.primary", ".action-note", ".plain-facts"]) {
+      const box = await page.locator(selector).boundingBox();
+      expect(box, `${selector} at ${viewport.width}×${viewport.height}`).not.toBeNull();
+      expect(box!.y, `${selector} top at ${viewport.width}×${viewport.height}`).toBeGreaterThanOrEqual(0);
+      expect(box!.y + box!.height, `${selector} bottom at ${viewport.width}×${viewport.height}`).toBeLessThanOrEqual(viewport.height);
+    }
+  }
 });
 
 test("@claim:sample-demo-page opens in one click without reading real browser data", async ({ page }) => {
@@ -67,12 +99,14 @@ test("license return is stored, stripped, and unlocks after verification", async
   expect(verificationCalls).toBe(1);
 });
 
-test("@claim:licensed-download paid files require an active license and use the protected API", async ({ page }) => {
+test("paid files require an active license and use the gateway-safe product header", async ({ page }) => {
   await page.route("https://api.sociobot.in/api/v1/products/local-records-continuity/verify?license=test-token", (route) =>
     route.fulfill({ json: { valid: true, reason: "ok", expires_at: null } })
   );
+  let licenseHeader = "";
   let authorization = "";
   await page.route("**/api/plus-download?asset=quarterly-restore-drill.md", (route) => {
+    licenseHeader = route.request().headers()["x-continuity-license"] ?? "";
     authorization = route.request().headers().authorization ?? "";
     return route.fulfill({
       status: 200,
@@ -89,7 +123,8 @@ test("@claim:licensed-download paid files require an active license and use the 
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download quarterly restore drill" }).click();
   await download;
-  expect(authorization).toBe("Bearer test-token");
+  expect(licenseHeader).toBe("test-token");
+  expect(authorization).toBe("");
   await expect(page.locator("#download-status")).toHaveText("Download ready.");
 });
 
@@ -156,6 +191,32 @@ test("live deployment returns the designed 404 and required response policy", as
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("This page does not exist.");
 });
 
+test("live managed API exposes this build and preserves product-license authentication", async ({ page }) => {
+  test.skip(!process.env.PLAYWRIGHT_BASE_URL, "Deployment-only managed API check.");
+  const identity = await page.request.get("/api/build");
+  expect(identity.status()).toBe(200);
+  expect(identity.headers()["cache-control"]).toBe("no-store");
+  expect(identity.headers()["x-continuity-api-build"]).toBe("local-records-continuity-repair-7");
+  await expect(identity.json()).resolves.toMatchObject({
+    product: "local-records-continuity",
+    release: "local-records-continuity-repair-7",
+    license_header: "x-continuity-license"
+  });
+
+  const endpoint = "/api/plus-download?asset=quarterly-restore-drill.md";
+  const missing = await page.request.post(endpoint);
+  expect(missing.status()).toBe(401);
+  expect(await missing.json()).toEqual({ error: "a Continuity Plus license is required" });
+  const reserved = await page.request.post(endpoint, { headers: { Authorization: "Bearer verifier-invalid" } });
+  expect(reserved.status()).toBe(401);
+  const invalid = await page.request.post(endpoint, { headers: { "X-Continuity-License": "verifier-invalid" } });
+  expect(invalid.status()).toBe(403);
+  expect(await invalid.json()).toEqual({ error: "license is not active" });
+  for (const response of [missing, reserved, invalid]) {
+    expect(response.headers()["x-continuity-api-build"]).toBe("local-records-continuity-repair-7");
+  }
+});
+
 test("purchase does not send customers to an unregistered checkout", async ({ page }) => {
   let checkoutRequests = 0;
   await page.route("https://api.sociobot.in/api/v1/products", (route) => route.fulfill({
@@ -213,6 +274,11 @@ test("@claim:offline-guide direct demo installs its shell and reloads the sample
   try {
     await context.addInitScript(() => {
       localStorage.setItem("sb_license:local-records-continuity", "real-license-sentinel");
+      localStorage.setItem("sb_license:local-records-continuity:verdict", JSON.stringify({
+        token: "real-license-sentinel",
+        valid: true,
+        checkedAt: Date.now()
+      }));
       sessionStorage.setItem("continuity-offline", "real-offline-state-sentinel");
     });
     await page.goto("/demo/");
@@ -230,6 +296,10 @@ test("@claim:offline-guide direct demo installs its shell and reloads the sample
     expect(await page.evaluate(() => localStorage.getItem("sb_license:local-records-continuity"))).toBe("real-license-sentinel");
     expect(await page.evaluate(() => sessionStorage.getItem("continuity-offline"))).toBe("real-offline-state-sentinel");
     expect(await page.evaluate(() => sessionStorage.getItem("demo:continuity-offline"))).toBe("true");
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Build a recovery pack for local business records.");
+    await expect(page.locator("#guide").getByRole("heading", { level: 2 })).toHaveText("Build your first recovery pack.");
+    expect(await page.evaluate(() => localStorage.getItem("sb_license:local-records-continuity"))).toBe("real-license-sentinel");
     expect(errors).toEqual([]);
   } finally {
     await context.close();
@@ -245,10 +315,37 @@ test("legal, demo, 404, and mobile layouts remain usable", async ({ page }, test
     expect(results.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
   }
   if (testInfo.project.name === "mobile-390") {
+    for (const path of ["/", "/demo/", "/privacy/", "/terms/", "/404.html"]) {
+      await page.goto(path);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+      expect(overflow, path).toBe(false);
+      await expect(page.locator("header nav .nav-essential:visible"), path).toHaveCount(2);
+      await expect(page.locator("header nav").getByRole("link", { name: "Install" }), path).toBeVisible();
+      await expect(page.locator("header nav").getByRole("link", { name: "Plus" }), path).toBeVisible();
+    }
     await page.goto("/");
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-    expect(overflow).toBe(false);
     await expect(page.getByRole("link", { name: "Try it with sample data" })).toBeVisible();
+  }
+});
+
+test("focus indicators keep at least 3:1 contrast on paper, ochre, warning, and dark surfaces", async ({ page }) => {
+  const samples = [
+    { path: "/", control: ".hero-actions .button.primary", surface: "body" },
+    { path: "/demo/", control: "#reset-demo", surface: ".demo-banner" },
+    { path: "/", control: "#network-retry", surface: ".network-strip", reveal: "#network-strip" },
+    { path: "/", control: "#tab-pack", surface: ".demo-section" }
+  ];
+  for (const sample of samples) {
+    await page.goto(sample.path);
+    if (sample.reveal) await page.locator(sample.reveal).evaluate((element: HTMLElement) => { element.hidden = false; });
+    await page.locator(sample.control).focus();
+    const colors = await page.locator(sample.control).evaluate((element) => {
+      const focus = getComputedStyle(element);
+      return { outline: focus.outlineColor, width: Number.parseFloat(focus.outlineWidth) };
+    });
+    const background = await page.locator(sample.surface).evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(colors.width, sample.control).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(colors.outline, background), sample.control).toBeGreaterThanOrEqual(3);
   }
 });
 

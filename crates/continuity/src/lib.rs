@@ -545,6 +545,12 @@ pub fn check_target(
     })?;
     let result = verify_pack(&newest, passphrase)?;
     if result.age_hours > max_age_hours as f64 {
+        if max_age_hours == 0 {
+            return Err(Error::verify(format!(
+                "newest pack is {:.3} seconds old; --max-age-hours 0 allows no elapsed time; set a positive maximum",
+                result.age_hours * 3_600.0
+            )));
+        }
         return Err(Error::verify(format!(
             "newest pack is {:.1} hours old; maximum is {max_age_hours} hours",
             result.age_hours

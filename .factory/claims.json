@@ -39,7 +39,7 @@
     "claim": "A scheduled check exits non-zero with an actionable error when its target is unavailable, stale, corrupt, or unreadable.",
     "where": "home workflow, README scheduling section",
     "test": "node --test --test-name-pattern='@claim:loud-scheduled-check' tests/claims.test.mjs",
-    "sandbox": "Run CI check against a unique absent target and assert exit 3 plus target-unavailable stderr; Rust regressions cover stale, corrupt, and wrong-passphrase paths."
+    "sandbox": "Run the exact CLI check against unavailable, zero-hour stale, byte-corrupt, and wrong-passphrase demo targets; assert non-zero exits and an actionable reason for each."
   },
   {
     "id": "restore-integrity",
@@ -60,14 +60,14 @@
     "claim": "The CLI accepts passphrases from a file, environment variable, hidden prompt, or supported OS keychain.",
     "where": "home feature ledger, privacy page, README",
     "test": "node --test --test-name-pattern='@claim:passphrase-sources' tests/claims.test.mjs",
-    "sandbox": "Verify the sample through a mode-0600 passphrase file and environment variable; query keychain status without storing a secret; CLI tests cover noninteractive prompt refusal."
+    "sandbox": "Verify through a mode-0600 file, an environment value, a hidden pseudo-terminal prompt, and a fixture Linux Secret Service lookup; assert every source decrypts the sample."
   },
   {
     "id": "offline-guide",
     "claim": "The guide and direct sample preview work offline after the first visit.",
     "where": "home facts and offline status; /demo/ offline status",
     "test": "npm run build:site && npx playwright test --grep '@claim:offline-guide'",
-    "sandbox": "Own fresh browser context; enter /demo/ directly with a sentinel real license, await a controlling service worker, set the context offline, reload, and assert the sample H1, offline strip, and unchanged real license."
+    "sandbox": "Own fresh browser context; enter /demo/ directly, go offline, and reload; assert the demo leaves real storage sentinels unchanged, then confirm the cached Home guide opens."
   },
   {
     "id": "browser-privacy",
@@ -87,8 +87,8 @@
     "id": "licensed-download",
     "claim": "Plus field-kit files are returned only after a live active-license check and are absent from the public build.",
     "where": "Plus section, privacy page, README",
-    "test": "npm run build:site && npx playwright test --grep '@claim:licensed-download'",
-    "sandbox": "Recorded valid license fixture; assert bearer authorization on the protected API and a browser download; API and build tests cover invalid tokens and absent public files."
+    "test": "npm run build:site && node --test --test-name-pattern='@claim:licensed-download' api/**/*.test.cjs",
+    "sandbox": "Direct managed-handler fixture; assert absent and reserved headers fail, an invalid product header is denied, a valid live-check fixture returns the file, and no paid asset exists in dist/site."
   },
   {
     "id": "plus-price-and-checkout",

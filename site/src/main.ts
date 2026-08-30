@@ -187,7 +187,9 @@ document.querySelectorAll<HTMLButtonElement>("[data-plus-asset]").forEach((butto
     try {
       const response = await fetch(`/api/plus-download?asset=${encodeURIComponent(asset)}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` }
+        // Azure Static Web Apps reserves Authorization for its own auth layer.
+        // A product-specific header reaches the managed function unchanged.
+        headers: { "X-Continuity-License": token }
       });
       if (!response.ok) {
         if (response.status === 429) {

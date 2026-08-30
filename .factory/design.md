@@ -23,14 +23,15 @@ focused layer without changing the overall mode.
 | `ink-muted` | `#526159` | Secondary copy (7.0:1 on paper) |
 | `pine` | `#1E5B45` | Primary action and mapped route |
 | `pine-dark` | `#123D2F` | Hover/focus and terminal shell |
-| `ochre` | `#B86428` | Survey pins and paid-tier emphasis |
+| `ochre` | `#9B4E1D` | Survey pins and paid-tier emphasis |
 | `ridge` | `#C9BEA8` | Dividers and contour lines |
 | `success` | `#17613E` | Verified state, always with text/icon |
 | `warning` | `#8A4817` | Attention state, always with text/icon |
 | `danger` | `#9B2F2F` | Failure state, always with text/icon |
 
-All body text/action pairings meet WCAG AA. Focus uses a 3px ochre outline with
-a paper offset, so it remains visible on both light and dark surfaces.
+All body text/action pairings meet WCAG AA. Focus uses a 3px ochre outline on
+paper and a 3px raised-paper outline on dark, warning, and ochre surfaces. Both
+treatments keep at least 3:1 contrast with the adjacent surface.
 
 ## Typography
 

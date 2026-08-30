@@ -33,7 +33,7 @@ directory to reset or discard the run; the next command creates a new one.
 The browser preview does not read or write localStorage, IndexedDB, OPFS, or
 the real application’s session-storage namespace. It uses only the
 `demo:continuity-offline` session key for its offline indicator. After its first
-direct visit, its own page shell and sample preview can reload offline. **Reset
+direct visit, the sample preview and full Home guide can reload offline. **Reset
 demo** returns its transcript to the Pack stage. **Start for real** returns to
 the installation guide. The browser preview is a recording; the CLI command
 performs the real pack, newest-pack check, and restore operations.
