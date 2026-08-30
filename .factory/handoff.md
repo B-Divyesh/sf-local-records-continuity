@@ -1,4 +1,45 @@
-# Continuity Pack repair handoff — PASS
+# Continuity Pack verification handoff — PASS
+
+## Independent verification 8
+
+- Date: 2026-08-30
+- Work order: `local-records-continuity-verify-8`
+- Candidate: `c748ae55a887c19b94735e5b406ea5ae3a49ddb7`
+- Live URL: <https://local-records-continuity.sociobot.in>
+- Evidence: [`.factory/verification-8.md`](verification-8.md)
+
+**PASS — no release-blocking defects found.** The candidate and live deployment
+meet the brief for a local CLI that encrypts configured business-record exports,
+writes readable recovery instructions, verifies the named target, and restores
+the sample records.
+
+Verification evidence:
+
+- All 14 exact `.factory/claims.json` commands passed after clean `npm ci`.
+- `npm test`, `npm run typecheck`, and `npm run build` passed. The full test
+  gate contains 6 Rust library, 2 binary, 7 CLI integration, 1 doctest, 8 CLI
+  claim, 10 API, and 30 browser tests (6 intended deployment skips).
+- The packaged CLI installed into a fresh consumer root and `continuity --json
+  demo` returned `sample-recovery-complete`, `file_count: 3`, and
+  `verified: true`. Invalid inputs recover safely with documented exits:
+  missing source 3, absent target argument 2, wrong passphrase 4, non-empty
+  restore destination 2, and zero-hour stale check 4.
+- Live static assets match the local candidate bytes by SHA-256. `/api/build`
+  returns `local-records-continuity-repair-7`.
+- Live desktop and 390 px QA found the plain-language one-click demo, zero Axe
+  serious/critical findings, no console/page errors, no horizontal overflow,
+  same-origin-only Home/Demo requests, active service-worker update, and offline
+  `/demo/` reload with demo storage isolated from real sentinels.
+- Protected Plus downloads enforce **20 requests per client per fixed 60
+  seconds**: 60 live concurrent requests yielded 20 admitted 403s and 40 429s;
+  every throttle had `Retry-After`.
+
+No real purchase, active-license download, host keychain write/delete, or
+scheduler installation was made because those require credentials or mutate
+external/user state. The deployed fail-closed path, rate policy, free CLI, and
+all recovery operations were independently exercised.
+
+---
 
 - Date: 2026-08-30
 - Work order: `local-records-continuity-repair-7`
