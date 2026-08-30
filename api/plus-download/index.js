@@ -238,14 +238,26 @@ function headerValue(headers, name) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function clientKey(req) {
-  // Azure provides x-azure-clientip at the platform edge. Fall back to the
-  // forwarded client address when running behind a standard reverse proxy.
-  const azureClientIp = headerValue(req.headers, "x-azure-clientip");
-  if (typeof azureClientIp === "string" && azureClientIp.trim()) return azureClientIp.trim().slice(0, 128);
+function normalizedClientAddress(value) {
+  const address = value.trim();
+  const bracketedIpv6 = /^\[([^\]]+)\](?::\d+)?$/.exec(address);
+  if (bracketedIpv6) return bracketedIpv6[1].toLowerCase().slice(0, 128);
+  const ipv4WithPort = /^(\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?$/.exec(address);
+  if (ipv4WithPort) return ipv4WithPort[1];
+  return address.toLowerCase().slice(0, 128);
+}
 
+function clientKey(req) {
+  // Azure's reverse proxy appends the actual source address to X-Forwarded-For.
+  // Use that final value so a caller cannot select the rate-limit bucket with a
+  // prepended header, and normalize connection-specific ports away.
   const forwarded = headerValue(req.headers, "x-forwarded-for");
-  if (typeof forwarded === "string" && forwarded.trim()) return forwarded.split(",")[0].trim().slice(0, 128);
+  if (typeof forwarded === "string" && forwarded.trim()) return normalizedClientAddress(forwarded.split(",").at(-1));
+
+  // Local function hosts and other standard reverse proxies may not send XFF.
+  // Azure provides this fallback at its platform edge.
+  const azureClientIp = headerValue(req.headers, "x-azure-clientip");
+  if (typeof azureClientIp === "string" && azureClientIp.trim()) return normalizedClientAddress(azureClientIp);
 
   return "unknown-client";
 }
