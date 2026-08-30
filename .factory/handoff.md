@@ -1,4 +1,37 @@
-# Continuity Pack repair handoff — PASS
+# Continuity Pack independent verification handoff — FAIL
+
+- Date: 2026-08-30
+- Verification work order: `local-records-continuity-verify-6`
+- Candidate commit: `5c09de18cf970dd7501038b5abcacd01be734fac`
+- Live URL: <https://local-records-continuity.sociobot.in>
+- Full evidence: [`.factory/verification-6.md`](verification-6.md)
+
+## Current verdict
+
+**FAIL — do not release this candidate.** All declared claims, the clean
+build/test/type/lint gates, packaged CLI consumer exercise, live privacy/header
+checks, asset parity, accessibility checks, and the live protected-download
+rate-limit probe pass. The remaining release-blocker is P1 in verification 6:
+the direct, documented `/demo/` entry point never registers a service worker,
+so it cannot reload the bundled sample offline after its first visit. This
+violates the PWA/demo sandbox contract.
+
+## Exact evidence and next step
+
+Fresh direct `/demo/` after eight seconds had zero service-worker
+registrations; offline reload produced `net::ERR_INTERNET_DISCONNECTED` and no
+H1. Home → sample navigation masks this because home registers `/sw.js`.
+Register the same worker/offline UI on the demo route, add a fresh-direct-demo
+offline claim regression, deploy, and rerun the verification-6 required
+commands plus the live direct-demo offline reload.
+
+The production endpoint allowance was independently verified as 20 requests
+per client per 60 seconds: 60 concurrent requests yielded 20 × 403 and 40 ×
+429 with `Retry-After` and `RateLimit-Backend: shared-azure-blob`.
+
+---
+
+## Superseded repair record
 
 - Date: 2026-08-30
 - Work order: `local-records-continuity-repair-5`
