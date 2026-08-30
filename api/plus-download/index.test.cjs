@@ -68,7 +68,7 @@ test("@claim:licensed-download returns field-kit files only after an active chec
   assert.equal(valid.res.status, 200);
   assert.match(valid.res.body, /Quarterly restore drill/);
   assert.equal(valid.res.headers["Content-Disposition"], 'attachment; filename="quarterly-restore-drill.md"');
-  assert.equal(valid.res.headers["X-Continuity-API-Build"], "local-records-continuity-polish-1");
+  assert.equal(valid.res.headers["X-Continuity-API-Build"], "local-records-continuity-repair-8");
   assert.deepEqual(verificationUrls.map((url) => new URL(url).searchParams.get("license")), ["invalid-token", "valid token"]);
 
   for (const asset of Object.keys(plusDownload.ASSETS)) {

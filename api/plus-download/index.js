@@ -7,7 +7,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const MAX_RATE_LIMIT_CLIENTS = 10_000;
 const RATE_LIMIT_BLOB_BASE_URL = process.env.RATE_LIMIT_BLOB_BASE_URL;
-const API_BUILD = "local-records-continuity-polish-1";
+const API_BUILD = "local-records-continuity-repair-8";
 const LICENSE_HEADER = "x-continuity-license";
 const ASSETS = Object.freeze({
   "multi-location-config.toml": {
