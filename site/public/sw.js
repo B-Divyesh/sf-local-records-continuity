@@ -1,6 +1,6 @@
-const CACHE = "continuity-pack-shell-v2";
+const CACHE = "continuity-pack-shell-v3";
 const GENERATED_ASSETS = [/* __PRECACHE_ASSETS__ */];
-const SHELL = ["/", "/privacy/", "/terms/", "/contour-vault.webp", "/mark.svg", "/site.webmanifest", ...GENERATED_ASSETS];
+const SHELL = ["/", "/demo/", "/privacy/", "/terms/", "/404.html", "/contour-vault.webp", "/social-card.webp", "/mark.svg", "/apple-touch-icon.png", "/site.webmanifest", ...GENERATED_ASSETS];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
@@ -17,5 +17,5 @@ self.addEventListener("fetch", (event) => {
     const copy = response.clone();
     caches.open(CACHE).then((cache) => cache.put(event.request, copy));
     return response;
-  }).catch(() => caches.match(event.request).then((cached) => cached || caches.match("/"))));
+  }).catch(() => caches.match(event.request).then((cached) => cached || (event.request.mode === "navigate" ? caches.match("/404.html") : undefined))));
 });

@@ -1,9 +1,100 @@
 [
   {
+    "id": "demo-sandbox",
+    "claim": "continuity demo runs the bundled Maple Street Books recovery path in a fresh temporary workspace.",
+    "where": "home first action, demo page, README",
+    "test": "node --test --test-name-pattern='@claim:demo-sandbox' tests/claims.test.mjs",
+    "sandbox": "Fresh caller directory; run both demo entry points; assert unique OS-temp workspaces, three bundled files, no caller-directory writes."
+  },
+  {
+    "id": "sample-demo-page",
+    "claim": "The first-screen sample action opens an isolated browser preview without reading or changing the saved real license.",
+    "where": "home first action and /demo/ banner",
+    "test": "npm run build:site && npx playwright test --grep '@claim:sample-demo-page'",
+    "sandbox": "Fresh browser page with a sentinel real license; enter /demo/ in one click, exercise and reset it, then assert no external requests or storage changes."
+  },
+  {
+    "id": "pack-artifacts",
+    "claim": "A pack run writes an encrypted .cpack, readable restore manifest, and matching JSON receipt.",
+    "where": "home workflow, README",
+    "test": "node --test --test-name-pattern='@claim:pack-artifacts' tests/claims.test.mjs",
+    "sandbox": "CLI demo output; assert three artifacts, CPACK format, no plaintext sample records in ciphertext, readable manifest, and receipt SHA-256."
+  },
+  {
+    "id": "authenticated-encryption",
+    "claim": "Packs use authenticated XChaCha20-Poly1305 encryption with an Argon2id passphrase-derived key.",
+    "where": "home feature ledger, README privacy section",
+    "test": "node --test --test-name-pattern='@claim:authenticated-encryption' tests/claims.test.mjs",
+    "sandbox": "CLI demo pack; verify succeeds with the sample passphrase and exits 4 with authentication failure for a wrong passphrase; Rust unit coverage fixes the named primitives."
+  },
+  {
+    "id": "explicit-local-target",
+    "claim": "The CLI has no telemetry or upload path and writes packs only to an explicit filesystem target.",
+    "where": "home facts, privacy page, README",
+    "test": "node --test --test-name-pattern='@claim:explicit-local-target' tests/claims.test.mjs",
+    "sandbox": "Run the full demo with libc network socket creation blocked and observed; assert success and no socket attempt; run pack without --target and assert exit 2 with no files."
+  },
+  {
+    "id": "loud-scheduled-check",
+    "claim": "A scheduled check exits non-zero with an actionable error when its target is unavailable, stale, corrupt, or unreadable.",
+    "where": "home workflow, README scheduling section",
+    "test": "node --test --test-name-pattern='@claim:loud-scheduled-check' tests/claims.test.mjs",
+    "sandbox": "Run CI check against a unique absent target and assert exit 3 plus target-unavailable stderr; Rust regressions cover stale, corrupt, and wrong-passphrase paths."
+  },
+  {
+    "id": "restore-integrity",
+    "claim": "Restore rechecks the pack and reproduces every bundled sample file byte for byte with a restore report.",
+    "where": "home demo, README",
+    "test": "node --test --test-name-pattern='@claim:restore-integrity' tests/claims.test.mjs",
+    "sandbox": "CLI demo result; compare all three restored files with repository fixtures and inspect RESTORE-REPORT.txt."
+  },
+  {
+    "id": "free-core-and-json",
+    "claim": "Pack, check, verify, restore, stable exit behavior, and JSON output require no paid license.",
+    "where": "home feature ledger and Plus section, terms, README",
+    "test": "node --test --test-name-pattern='@claim:free-core-and-json' tests/claims.test.mjs",
+    "sandbox": "Environment without a license; run the complete demo in CI JSON mode and assert one valid JSON result with verified true."
+  },
+  {
+    "id": "passphrase-sources",
+    "claim": "The CLI accepts passphrases from a file, environment variable, hidden prompt, or supported OS keychain.",
+    "where": "home feature ledger, privacy page, README",
+    "test": "node --test --test-name-pattern='@claim:passphrase-sources' tests/claims.test.mjs",
+    "sandbox": "Verify the sample through a mode-0600 passphrase file and environment variable; query keychain status without storing a secret; CLI tests cover noninteractive prompt refusal."
+  },
+  {
+    "id": "offline-guide",
+    "claim": "The guide works offline after the first visit.",
+    "where": "home facts and offline status",
+    "test": "npm run build:site && npx playwright test --grep '@claim:offline-guide'",
+    "sandbox": "Own fresh browser context; load and await the service worker, set the context offline, reload, and assert the H1 and offline strip."
+  },
+  {
+    "id": "browser-privacy",
+    "claim": "The normal home and sample-demo flows send no analytics, record data, third-party fonts, or third-party scripts.",
+    "where": "privacy page",
+    "test": "npm run build:site && npx playwright test --grep '@claim:browser-privacy'",
+    "sandbox": "Fresh browser page; record every request while loading home and exercising demo; assert the only origin is the product origin."
+  },
+  {
     "id": "protected-download-rate-limit",
-    "claim": "Protected Plus downloads are rate limited during a burst.",
-    "where": "Protected download API response policy",
+    "claim": "Protected Plus downloads admit at most 20 requests per client in a fixed 60-second window across deployed workers.",
+    "where": "protected download API response policy and privacy page",
     "test": "npm run test:claim:protected-download-rate-limit",
-    "sandbox": "60 concurrent POST requests to the shipped function with one client IP; the requests after the 20-request window return 429 and Retry-After."
+    "sandbox": "60 concurrent POST requests plus a six-worker Azure Blob atomic-append simulation; exactly 20 are admitted and 40 return 429 with Retry-After."
+  },
+  {
+    "id": "licensed-download",
+    "claim": "Plus field-kit files are returned only after a live active-license check and are absent from the public build.",
+    "where": "Plus section, privacy page, README",
+    "test": "npm run build:site && npx playwright test --grep '@claim:licensed-download'",
+    "sandbox": "Recorded valid license fixture; assert bearer authorization on the protected API and a browser download; API and build tests cover invalid tokens and absent public files."
+  },
+  {
+    "id": "plus-price-and-checkout",
+    "claim": "Continuity Plus costs $39 once and uses the registered Sociobot checkout.",
+    "where": "Plus section, terms, README",
+    "test": "npm run build:site && npx playwright test --grep '@claim:plus-price-and-checkout'",
+    "sandbox": "Recorded production-registry fixture; assert exact price copy and navigation only to the matching Sociobot checkout URL."
   }
 ]

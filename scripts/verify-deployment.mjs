@@ -1,0 +1,38 @@
+import assert from "node:assert/strict";
+
+const baseUrl = (process.env.VERIFY_BASE_URL ?? "https://local-records-continuity.sociobot.in").replace(/\/$/, "");
+const endpoint = `${baseUrl}/api/plus-download?asset=multi-location-config.toml`;
+
+const home = await fetch(`${baseUrl}/`);
+assert.equal(home.status, 200);
+assert.match(home.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
+const demo = await fetch(`${baseUrl}/demo/`);
+assert.equal(demo.status, 200);
+assert.match(await demo.text(), /Demo — sample data, nothing is saved here/);
+const missing = await fetch(`${baseUrl}/not-a-real-route-${Date.now()}`);
+assert.equal(missing.status, 404);
+assert.match(await missing.text(), /This page does not exist/);
+
+const delay = 60_000 - (Date.now() % 60_000) + 1_500;
+process.stdout.write(`Waiting ${delay} ms for a fresh fixed rate-limit window...\n`);
+await new Promise((resolve) => setTimeout(resolve, delay));
+
+const responses = await Promise.all(Array.from({ length: 60 }, () => fetch(endpoint, {
+  method: "POST",
+  headers: { Authorization: "Bearer deployment-rate-limit-fixture" },
+  signal: AbortSignal.timeout(20_000)
+})));
+const counts = Object.fromEntries([...new Set(responses.map((response) => response.status))]
+  .sort()
+  .map((status) => [status, responses.filter((response) => response.status === status).length]));
+const admitted = responses.filter((response) => response.status !== 429);
+const throttled = responses.filter((response) => response.status === 429);
+
+assert.equal(admitted.length, 20, JSON.stringify(counts));
+assert.equal(throttled.length, 40, JSON.stringify(counts));
+assert.ok(admitted.every((response) => response.status === 403), JSON.stringify(counts));
+assert.ok(responses.every((response) => response.headers.get("ratelimit-policy") === "20;w=60"));
+assert.ok(responses.every((response) => response.headers.get("ratelimit-backend") === "shared-azure-blob"));
+assert.ok(throttled.every((response) => /^[1-9][0-9]?$/.test(response.headers.get("retry-after") ?? "")));
+
+console.log(JSON.stringify({ endpoint, csp: true, demo: true, notFound: 404, requests: responses.length, counts, backend: "shared-azure-blob" }));

@@ -4,16 +4,16 @@ type DemoKey = "pack" | "verify" | "restore";
 
 const demos: Record<DemoKey, { output: string; note: string }> = {
   pack: {
-    output: `$ continuity pack --target /media/offsite/backups\n\nBUSINESS    Maple Street Books\nSOURCES     3 required · 1 optional\nPACKED      1,284 files · 86.4 MB\nENCRYPTED   maple-street-books-2026-08-28T120000Z.cpack\nCOPIED      /media/offsite/backups\nVERIFIED    authenticated · all hashes match  ✓`,
-    note: "Pack written and target copy verified."
+    output: `$ continuity demo\n\nBUSINESS    Maple Street Books\nSOURCES     3 bundled sample files\nTARGET      /tmp/continuity-demo-…/target\nPACKED      invoices, customers, insurance note\nVERIFIED    authenticated · all hashes match  ✓`,
+    note: "The target and pack exist only inside a new temporary demo workspace."
   },
   verify: {
-    output: `$ continuity check --target /media/offsite/backups\n\nNEWEST      2026-08-28 12:00 UTC\nAGE         3h 14m · within 26h limit\nDECRYPT     authenticated  ✓\nFILES       1,284 / 1,284 match  ✓\nRECEIPT     pack SHA-256 matches  ✓\n\nRESULT      Recovery pack is readable.`,
-    note: "Dry-read complete. This is not a full application restore."
+    output: `$ continuity check --target /tmp/continuity-demo-…/target\n\nNEWEST      maple-street-books-….cpack\nAGE         within 1 hour\nDECRYPT     authenticated  ✓\nFILES       3 / 3 match  ✓\nRECEIPT     encrypted pack hash matches  ✓`,
+    note: "The demo checks the newest pack before restoring it."
   },
   restore: {
-    output: `$ continuity restore latest.cpack --output ./recovered-records\n\nCHECK       authenticated before writing  ✓\nRESTORED    records/invoices/2026.csv\nRESTORED    records/customers/customers.csv\nRESTORED    records/ledger/general-ledger.csv\nREPORT      recovered-records/RESTORE-REPORT.txt\n\nNEXT        Import into a test copy of your app.`,
-    note: "Files restored and rechecked in a new directory."
+    output: `$ continuity restore maple-street-books-….cpack --output /tmp/continuity-demo-…/restored\n\nRESTORED    records/invoices/invoices.csv\nRESTORED    records/customers/customers.csv\nRESTORED    records/supporting-documents/insurance-renewal.txt\nREPORT      RESTORE-REPORT.txt\n\nRESULT      SAMPLE RECOVERY COMPLETE`,
+    note: "The CLI prints the workspace path so you can inspect or delete it."
   }
 };
 

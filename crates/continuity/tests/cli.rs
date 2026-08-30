@@ -3,6 +3,16 @@ use continuity_pack::{create_pack, Config, PackOptions, RecordSource};
 use predicates::prelude::*;
 use std::{fs, path::PathBuf};
 
+#[derive(serde::Deserialize)]
+struct DemoOutput {
+    status: String,
+    workspace: PathBuf,
+    target_pack: PathBuf,
+    restored: PathBuf,
+    file_count: usize,
+    verified: bool,
+}
+
 #[test]
 fn help_is_actionable() {
     Command::cargo_bin("continuity")
@@ -10,8 +20,49 @@ fn help_is_actionable() {
         .arg("--help")
         .assert()
         .success()
+        .stdout(predicate::str::contains("continuity demo"))
         .stdout(predicate::str::contains("continuity pack --target"))
         .stdout(predicate::str::contains("Exit codes"));
+}
+
+#[test]
+fn demo_command_runs_full_recovery_path_in_a_temporary_workspace() {
+    let invocation = Command::cargo_bin("continuity")
+        .unwrap()
+        .args(["--json", "demo"])
+        .output()
+        .unwrap();
+    assert!(invocation.status.success());
+    let output: DemoOutput = serde_json::from_slice(&invocation.stdout).unwrap();
+    assert_eq!(output.status, "sample-recovery-complete");
+    assert!(output.workspace.starts_with(std::env::temp_dir()));
+    assert!(output.target_pack.starts_with(&output.workspace));
+    assert!(output.restored.starts_with(&output.workspace));
+    assert_eq!(output.file_count, 3);
+    assert!(output.verified);
+    assert_eq!(
+        fs::read_to_string(output.restored.join("records/invoices/invoices.csv")).unwrap(),
+        include_str!("../examples/maple-street-books/exports/invoices.csv")
+    );
+    assert!(output.restored.join("RESTORE-REPORT.txt").is_file());
+}
+
+#[test]
+fn demo_flag_is_an_alias_and_each_run_uses_a_fresh_workspace() {
+    let run = || {
+        let output = Command::cargo_bin("continuity")
+            .unwrap()
+            .args(["--json", "--demo"])
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        serde_json::from_slice::<DemoOutput>(&output.stdout).unwrap()
+    };
+    let first = run();
+    let second = run();
+    assert_ne!(first.workspace, second.workspace);
+    assert!(first.workspace.starts_with(std::env::temp_dir()));
+    assert!(second.workspace.starts_with(std::env::temp_dir()));
 }
 
 #[test]

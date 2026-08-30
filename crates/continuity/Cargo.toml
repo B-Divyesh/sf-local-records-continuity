@@ -10,7 +10,7 @@ homepage = "https://local-records-continuity.sociobot.in"
 readme = "../../README.md"
 keywords = ["backup", "recovery", "encryption", "cli"]
 categories = ["command-line-utilities", "filesystem"]
-include = ["src/**", "tests/**", "../../README.md", "../../LICENSE"]
+include = ["src/**", "tests/**", "examples/**", "../../README.md", "../../LICENSE"]
 
 [[bin]]
 name = "continuity"

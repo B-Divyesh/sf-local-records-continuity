@@ -1,10 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { execFile } = require("node:child_process");
-const { promisify } = require("node:util");
 const plusDownload = require("./index.js");
-
-const execFileAsync = promisify(execFile);
 
 function context() {
   return { log: { warn() {} }, res: undefined };
@@ -110,23 +106,35 @@ test("rate limits authenticated bursts before upstream verification", async (t) 
   }
 });
 
-test("shared rate-limit state survives isolated function worker processes", async () => {
-  const handlerPath = require.resolve("./index.js");
-  const invocation = `
-    const handler = require(${JSON.stringify(handlerPath)});
-    const context = { log: { warn() {} } };
-    handler(context, {
-      query: { asset: "quarterly-restore-drill.md" },
-      headers: { "x-azure-clientip": "198.51.100.55:443" }
-    }).then(() => process.stdout.write(String(context.res.status)));
-  `;
-  const responses = await Promise.all(Array.from({ length: 21 }, async () => {
-    const { stdout } = await execFileAsync(process.execPath, ["-e", invocation]);
-    return Number.parseInt(stdout, 10);
+test("shared Azure append condition admits only 20 requests across isolated workers", async () => {
+  const blobs = new Map();
+  const storageFetch = async (input, init) => {
+    const url = new URL(String(input));
+    const key = url.pathname;
+    if (!url.searchParams.has("comp")) {
+      if (blobs.has(key)) return { status: 409 };
+      blobs.set(key, 0);
+      return { status: 201 };
+    }
+    const maximum = Number(init.headers["x-ms-blob-condition-maxsize"]);
+    const length = blobs.get(key);
+    if (length === undefined) return { status: 404 };
+    if (length >= maximum) return { status: 412 };
+    blobs.set(key, length + 1);
+    return { status: 201 };
+  };
+  const workers = Array.from({ length: 6 }, () => plusDownload.createAzureBlobRateLimiter({
+    baseUrl: "https://storage.example/rate-limits?sig=fixture",
+    now: () => 120_000,
+    fetchFn: storageFetch
   }));
+  const results = await Promise.all(Array.from({ length: 60 }, (_, index) =>
+    workers[index % workers.length].take("198.51.100.55")
+  ));
 
-  assert.equal(responses.filter((status) => status === 401).length, 20);
-  assert.equal(responses.filter((status) => status === 429).length, 1);
+  assert.equal(results.filter((result) => result.allowed).length, 20);
+  assert.equal(results.filter((result) => !result.allowed).length, 40);
+  assert.ok(results.filter((result) => !result.allowed).every((result) => result.retryAfterSeconds === 60));
 });
 
 test("rate-limit retry timing resets accurately and clients have separate windows", () => {

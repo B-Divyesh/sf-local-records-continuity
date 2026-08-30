@@ -1,0 +1,17 @@
+business_name = "Maple Street Books"
+output_dir = "packs"
+
+[[records]]
+label = "invoices"
+path = "exports/invoices.csv"
+required = true
+
+[[records]]
+label = "customers"
+path = "exports/customers.csv"
+required = true
+
+[[records]]
+label = "supporting-documents"
+path = "exports/documents"
+required = true

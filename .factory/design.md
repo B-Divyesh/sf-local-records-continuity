@@ -82,6 +82,11 @@ contrast.
   composition, useful negative space, calm capable mood, no people, no logos, no
   words, no letters, no numbers, no gradients, no cloud icon, no watermark.”
   Generated under the OpenAI output terms applicable to the factory account.
+- `site/public/social-card.webp`: a locally cropped 1200×630 derivative of the
+  original contour-vault illustration for link previews. No new source asset
+  or external material was introduced.
+- `site/public/apple-touch-icon.png`: a locally cropped 180×180 detail from the
+  same original illustration for device home screens.
 - Small route/check/seal icons are original inline SVG built from simple map
   notation and authored in the repository. They are deterministic UI assets,
   not substitutes for the hero raster.

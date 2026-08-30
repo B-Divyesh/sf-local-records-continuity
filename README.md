@@ -10,6 +10,24 @@ It does not administer databases, upload to hosted storage, or claim that an
 archive check is a full application restore. You remain responsible for making
 your application exports and periodically testing a real restore.
 
+## Try the bundled sample
+
+Run the complete sample without configuration or an account:
+
+```sh
+continuity demo
+```
+
+The command writes three fictional Maple Street Books files into a unique
+temporary workspace. It packs, checks, and restores them with the production
+code path, then prints the workspace path for inspection. `continuity --demo`
+is an alias, and `continuity --json demo` returns one JSON result. Delete the
+printed directory to reset; each new run uses a fresh directory.
+
+The browser preview is at
+<https://local-records-continuity.sociobot.in/demo/>. Sample source files are
+in [`examples/maple-street-books/`](examples/maple-street-books/).
+
 ## Install
 
 Download a release binary for your platform, or build from source:
@@ -128,11 +146,18 @@ mode, builds the static site, and places the deployable website at `dist/site/`
 with `index.html` at that root. `npm run build:site` builds only the site.
 Release builds use the production Sociobot API by default; explicitly set
 `VITE_BILLING_API_BASE=https://pilot-api.sociobot.in/api/v1` only for staging.
+The managed download function uses `RATE_LIMIT_BLOB_BASE_URL`, a private
+container SAS limited to create, add, and write permissions. Production keeps
+that value in Static Web App settings, never in source control. The storage
+lifecycle policy marks rate-counter append blobs for deletion after one day.
 
 ## Repository map
 
 - `crates/continuity/` — Rust CLI and library
+- `examples/` — the shipped Maple Street Books demo records
 - `site/` — Vite + vanilla TypeScript landing/docs/demo
+- `.factory/claims.json` — visitor claims and their exact regression commands
+- `.factory/demo.md` — demo data and isolation contract
 - `.factory/design.md` — topographic visual system and asset provenance
 - `.factory/handoff.md` — verification and release handoff
 

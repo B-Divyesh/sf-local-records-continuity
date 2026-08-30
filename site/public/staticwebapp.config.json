@@ -17,6 +17,18 @@
       }
     },
     {
+      "route": "/social-card.webp",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/apple-touch-icon.png",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
       "route": "/mark.svg",
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
@@ -35,19 +47,16 @@
       }
     }
   ],
-  "navigationFallback": {
-    "rewrite": "/index.html",
-    "exclude": [
-      "/assets/*",
-      "/api/*",
-      "/plus/*",
-      "/*.{css,js,png,jpg,jpeg,gif,svg,webp,avif,ico,woff,woff2,json,txt,xml,webmanifest,wasm}"
-    ]
+  "responseOverrides": {
+    "404": {
+      "rewrite": "/404.html"
+    }
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Content-Security-Policy": "default-src 'self'; base-uri 'none'; connect-src 'self' https://api.sociobot.in; font-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' blob:; manifest-src 'self'; object-src 'none'; script-src 'self'; style-src 'self'; worker-src 'self'"
   },
   "mimeTypes": {
     ".webmanifest": "application/manifest+json"

@@ -1,0 +1,4 @@
+invoice,date,customer,total,status
+INV-1048,2026-08-12,Northwind Reading Group,184.50,paid
+INV-1051,2026-08-19,Riverbank Primary School,327.80,paid
+INV-1057,2026-08-27,Juniper Cafe,68.25,due

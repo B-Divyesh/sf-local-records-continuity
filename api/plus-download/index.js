@@ -1,17 +1,12 @@
 "use strict";
 
-const { createHash, randomUUID } = require("node:crypto");
-const { mkdir, readFile, rename, rmdir, stat, unlink, writeFile } = require("node:fs/promises");
-const { tmpdir } = require("node:os");
-const { join } = require("node:path");
+const { createHash } = require("node:crypto");
 
 const VERIFY_URL = "https://api.sociobot.in/api/v1/products/local-records-continuity/verify";
 const RATE_LIMIT_MAX_REQUESTS = 20;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const MAX_RATE_LIMIT_CLIENTS = 10_000;
-const RATE_LIMIT_LOCK_TIMEOUT_MS = 2_000;
-const RATE_LIMIT_LOCK_STALE_MS = 10_000;
-const RATE_LIMIT_STATE_PATH = join(tmpdir(), "continuity-plus-download-rate-limit-v1.json");
+const RATE_LIMIT_BLOB_BASE_URL = process.env.RATE_LIMIT_BLOB_BASE_URL;
 const ASSETS = Object.freeze({
   "multi-location-config.toml": {
     type: "application/toml; charset=utf-8",
@@ -73,13 +68,7 @@ Notes:
   }
 });
 
-/**
- * Keep the protected endpoint from becoming an unbounded license-verification
- * proxy. Azure Functions reuses a module while an instance is warm, so this
- * limits each client on every warm instance without storing license tokens or
- * other customer data. Expired entries are pruned and the map is capped to
- * prevent an IP-spray from growing process memory indefinitely.
- */
+/** In-memory implementation for unit tests and local function development. */
 function createRateLimiter({
   limit = RATE_LIMIT_MAX_REQUESTS,
   windowMs = RATE_LIMIT_WINDOW_MS,
@@ -124,111 +113,74 @@ function createRateLimiter({
   };
 }
 
-function wait(milliseconds) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
 function rateLimitClientId(client) {
-  // The short-lived state file stores a one-way hash, never a raw IP address.
+  // Shared state stores a one-way hash, never a raw IP address.
   return createHash("sha256").update(client).digest("hex");
 }
 
-function pruneRateLimitState(state, currentTime) {
-  for (const [client, entry] of Object.entries(state)) {
-    if (!entry || typeof entry.count !== "number" || typeof entry.resetAt !== "number" || entry.resetAt <= currentTime) {
-      delete state[client];
-    }
-  }
-  const overflow = Object.keys(state).length - MAX_RATE_LIMIT_CLIENTS;
-  if (overflow > 0) {
-    Object.entries(state)
-      .sort(([, left], [, right]) => left.resetAt - right.resetAt)
-      .slice(0, overflow)
-      .forEach(([client]) => delete state[client]);
-  }
-}
-
-async function acquireFileLock(lockPath, now = () => Date.now()) {
-  const deadline = now() + RATE_LIMIT_LOCK_TIMEOUT_MS;
-  while (now() < deadline) {
-    try {
-      await mkdir(lockPath);
-      return async () => { await rmdir(lockPath).catch(() => {}); };
-    } catch (error) {
-      if (!error || error.code !== "EEXIST") throw error;
-      try {
-        const lock = await stat(lockPath);
-        if (now() - lock.mtimeMs > RATE_LIMIT_LOCK_STALE_MS) await rmdir(lockPath).catch(() => {});
-      } catch (lockError) {
-        if (!lockError || lockError.code !== "ENOENT") throw lockError;
-      }
-      await wait(5);
-    }
-  }
-  throw new Error("protected-download rate-limit state is busy");
-}
-
-function createSharedRateLimiter({
-  statePath = RATE_LIMIT_STATE_PATH,
-  now = () => Date.now()
+/**
+ * Production implementation shared by every Azure Functions worker.
+ *
+ * One append blob represents one client and fixed one-minute window. Azure
+ * Blob Storage applies x-ms-blob-condition-maxsize atomically, so at most 20
+ * one-byte blocks can be appended even when separate function hosts race.
+ */
+function createAzureBlobRateLimiter({
+  baseUrl,
+  limit = RATE_LIMIT_MAX_REQUESTS,
+  windowMs = RATE_LIMIT_WINDOW_MS,
+  now = () => Date.now(),
+  fetchFn = fetch
 } = {}) {
-  const lockPath = `${statePath}.lock`;
+  if (!baseUrl) throw new Error("RATE_LIMIT_BLOB_BASE_URL is required");
 
-  async function readState() {
-    try {
-      const parsed = JSON.parse(await readFile(statePath, "utf8"));
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-    } catch (error) {
-      if (error && error.code === "ENOENT") return {};
-      return {};
-    }
+  function blobUrl(client, window) {
+    const url = new URL(baseUrl);
+    url.pathname = `${url.pathname.replace(/\/$/, "")}/v1/${rateLimitClientId(client)}/${window}`;
+    return url;
   }
 
-  async function writeState(state) {
-    const temporaryPath = `${statePath}.${process.pid}.${randomUUID()}.tmp`;
-    await writeFile(temporaryPath, JSON.stringify(state), { mode: 0o600 });
-    await rename(temporaryPath, statePath);
+  async function ensureAppendBlob(url) {
+    const created = await fetchFn(url, {
+      method: "PUT",
+      headers: {
+        "Content-Length": "0",
+        "If-None-Match": "*",
+        "x-ms-blob-type": "AppendBlob",
+        "x-ms-version": "2023-11-03"
+      }
+    });
+    if (![201, 409, 412].includes(created.status)) {
+      throw new Error(`rate-limit blob creation returned ${created.status}`);
+    }
   }
 
   return {
     async take(client) {
-      const release = await acquireFileLock(lockPath, now);
-      try {
-        const currentTime = now();
-        const state = await readState();
-        pruneRateLimitState(state, currentTime);
-        const clientId = rateLimitClientId(client);
-        let entry = state[clientId];
-        if (!entry || entry.resetAt <= currentTime) {
-          entry = { count: 0, resetAt: currentTime + RATE_LIMIT_WINDOW_MS };
-          state[clientId] = entry;
-        }
-
-        let result;
-        if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
-          result = {
-            allowed: false,
-            retryAfterSeconds: Math.max(1, Math.ceil((entry.resetAt - currentTime) / 1000))
-          };
-        } else {
-          entry.count += 1;
-          result = { allowed: true };
-        }
-        await writeState(state);
-        return result;
-      } finally {
-        await release();
+      const currentTime = now();
+      const window = Math.floor(currentTime / windowMs);
+      const url = blobUrl(client, window);
+      await ensureAppendBlob(url);
+      const appendUrl = new URL(url);
+      appendUrl.searchParams.set("comp", "appendblock");
+      const appended = await fetchFn(appendUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Length": "1",
+          "Content-Type": "application/octet-stream",
+          "x-ms-blob-condition-maxsize": String(limit),
+          "x-ms-version": "2023-11-03"
+        },
+        body: Buffer.from([1])
+      });
+      if (appended.status === 201) return { allowed: true };
+      if (appended.status === 412) {
+        return {
+          allowed: false,
+          retryAfterSeconds: Math.max(1, Math.ceil((windowMs - (currentTime % windowMs)) / 1000))
+        };
       }
-    },
-    async reset() {
-      const release = await acquireFileLock(lockPath, now);
-      try {
-        await unlink(statePath).catch((error) => {
-          if (!error || error.code !== "ENOENT") throw error;
-        });
-      } finally {
-        await release();
-      }
+      throw new Error(`rate-limit blob append returned ${appended.status}`);
     }
   };
 }
@@ -261,7 +213,10 @@ function clientKey(req) {
   return "unknown-client";
 }
 
-const downloadRateLimiter = createSharedRateLimiter();
+const downloadRateLimiter = RATE_LIMIT_BLOB_BASE_URL
+  ? createAzureBlobRateLimiter({ baseUrl: RATE_LIMIT_BLOB_BASE_URL })
+  : createRateLimiter();
+const rateLimitBackend = RATE_LIMIT_BLOB_BASE_URL ? "shared-azure-blob" : "local-memory";
 
 function response(status, body, headers = {}) {
   return {
@@ -270,6 +225,7 @@ function response(status, body, headers = {}) {
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
       "RateLimit-Policy": `${RATE_LIMIT_MAX_REQUESTS};w=${RATE_LIMIT_WINDOW_MS / 1000}`,
+      "RateLimit-Backend": rateLimitBackend,
       ...headers
     },
     body
@@ -335,5 +291,5 @@ module.exports = async function plusDownload(context, req) {
 
 module.exports.ASSETS = ASSETS;
 module.exports.createRateLimiter = createRateLimiter;
-module.exports.createSharedRateLimiter = createSharedRateLimiter;
+module.exports.createAzureBlobRateLimiter = createAzureBlobRateLimiter;
 module.exports.resetRateLimitForTests = () => downloadRateLimiter.reset();

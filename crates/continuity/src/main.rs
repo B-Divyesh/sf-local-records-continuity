@@ -8,10 +8,17 @@ use std::{
     io::{self, IsTerminal, Read},
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 const KEYRING_SERVICE: &str = "continuity-pack";
 const KEYRING_USER: &str = "default";
+const DEMO_PASSPHRASE: &str = "maple-street-books-demo-only";
+const DEMO_CONFIG: &str = include_str!("../examples/maple-street-books/continuity.toml");
+const DEMO_INVOICES: &str = include_str!("../examples/maple-street-books/exports/invoices.csv");
+const DEMO_CUSTOMERS: &str = include_str!("../examples/maple-street-books/exports/customers.csv");
+const DEMO_DOCUMENT: &str =
+    include_str!("../examples/maple-street-books/exports/documents/insurance-renewal.txt");
 const SAMPLE_CONFIG: &str = r#"# Continuity Pack configuration
 # Paths are relative to this file. A missing required source stops the pack.
 business_name = "Example Workshop"
@@ -39,7 +46,7 @@ required = false
     version,
     about = "Build and test an encrypted recovery handoff for business records",
     long_about = "Continuity Pack gathers configured exports, records checksums, encrypts them, writes a readable restore map, and verifies an explicit target copy.\n\nIt never uploads data and verification is not a full application restore test.",
-    after_help = "Start here:\n  continuity init\n  continuity pack --target /media/offsite/backups\n  continuity check --target /media/offsite/backups --json\n\nExit codes: 0 success, 2 configuration, 3 missing input/target, 4 verification, 5 OS integration"
+    after_help = "Try the isolated sample first:\n  continuity demo\n\nStart for real:\n  continuity init\n  continuity pack --target /media/offsite/backups\n  continuity check --target /media/offsite/backups --json\n\nExit codes: 0 success, 2 configuration, 3 missing input/target, 4 verification, 5 OS integration"
 )]
 struct Cli {
     /// Emit one machine-readable JSON object.
@@ -54,12 +61,18 @@ struct Cli {
     #[arg(long, global = true, value_name = "FILE")]
     passphrase_file: Option<PathBuf>,
 
+    /// Run the bundled sample in a new temporary workspace.
+    #[arg(long)]
+    demo: bool,
+
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// Pack, check, and restore bundled sample records in a temporary workspace.
+    Demo,
     /// Write a documented starter continuity.toml.
     Init {
         #[arg(long, default_value = "continuity.toml")]
@@ -132,6 +145,29 @@ struct Message<'a> {
     message: String,
 }
 
+#[derive(Debug, Serialize)]
+struct DemoResult {
+    status: &'static str,
+    workspace: PathBuf,
+    target_pack: PathBuf,
+    restored: PathBuf,
+    file_count: usize,
+    verified: bool,
+}
+
+impl std::fmt::Display for DemoResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "SAMPLE RECOVERY COMPLETE\nWorkspace: {}\nPack: {}\nRestored: {}\nFiles: {}\nVerified: yes\nDemo files stay in this temporary workspace. Delete it when finished.",
+            self.workspace.display(),
+            self.target_pack.display(),
+            self.restored.display(),
+            self.file_count
+        )
+    }
+}
+
 impl std::fmt::Display for Message<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.message)
@@ -155,7 +191,21 @@ fn main() {
 }
 
 fn run(cli: Cli) -> Result<(), Error> {
-    match cli.command {
+    if cli.demo {
+        if cli.command.is_some() {
+            return Err(Error::invalid("--demo cannot be combined with a command"));
+        }
+        return emit(cli.json, &run_demo()?);
+    }
+
+    let Some(command) = cli.command else {
+        return Err(Error::invalid(
+            "choose a command; run continuity demo to try the bundled sample",
+        ));
+    };
+
+    match command {
+        Commands::Demo => emit(cli.json, &run_demo()?),
         Commands::Init { config, force } => {
             if config.exists() && !force {
                 return Err(Error::invalid(format!(
@@ -205,6 +255,84 @@ fn run(cli: Cli) -> Result<(), Error> {
         Commands::Schedule(args) => schedule(args, cli.json),
         Commands::Key(command) => key_command(command, cli.ci, cli.json),
     }
+}
+
+fn run_demo() -> Result<DemoResult, Error> {
+    let workspace = create_demo_workspace()?;
+    let exports = workspace.join("exports");
+    let documents = exports.join("documents");
+    let target = workspace.join("target");
+    let restored = workspace.join("restored");
+    fs::create_dir_all(&documents).map_err(|e| {
+        Error::unavailable(format!(
+            "could not create demo workspace {}: {e}",
+            workspace.display()
+        ))
+    })?;
+    fs::create_dir(&target).map_err(|e| {
+        Error::unavailable(format!(
+            "could not create demo target {}: {e}",
+            target.display()
+        ))
+    })?;
+
+    let config_path = workspace.join("continuity.toml");
+    write_demo_file(&config_path, DEMO_CONFIG)?;
+    write_demo_file(&exports.join("invoices.csv"), DEMO_INVOICES)?;
+    write_demo_file(&exports.join("customers.csv"), DEMO_CUSTOMERS)?;
+    write_demo_file(&documents.join("insurance-renewal.txt"), DEMO_DOCUMENT)?;
+
+    let config = Config::from_path(&config_path)?;
+    let pack = create_pack(PackOptions {
+        config: &config,
+        config_path: &config_path,
+        target: &target,
+        passphrase: DEMO_PASSPHRASE,
+    })?;
+    let checked = check_target(&target, DEMO_PASSPHRASE, 1)?;
+    let recovery = restore_pack(&pack.target_pack, &restored, DEMO_PASSPHRASE)?;
+
+    Ok(DemoResult {
+        status: "sample-recovery-complete",
+        workspace,
+        target_pack: pack.target_pack,
+        restored,
+        file_count: recovery.file_count,
+        verified: pack.verified && checked.authenticated && recovery.verified,
+    })
+}
+
+fn create_demo_workspace() -> Result<PathBuf, Error> {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| Error::integration(format!("system clock is before Unix time: {e}")))?
+        .as_nanos();
+    let base = env::temp_dir();
+    for attempt in 0..100_u8 {
+        let candidate = base.join(format!(
+            "continuity-demo-{}-{nonce}-{attempt}",
+            std::process::id()
+        ));
+        match fs::create_dir(&candidate) {
+            Ok(()) => return Ok(candidate),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(Error::unavailable(format!(
+                    "could not create isolated demo workspace {}: {error}",
+                    candidate.display()
+                )))
+            }
+        }
+    }
+    Err(Error::unavailable(
+        "could not choose a unique temporary demo workspace",
+    ))
+}
+
+fn write_demo_file(path: &Path, contents: &str) -> Result<(), Error> {
+    fs::write(path, contents).map_err(|e| {
+        Error::unavailable(format!("could not write demo file {}: {e}", path.display()))
+    })
 }
 
 fn emit<T: Serialize + std::fmt::Display>(json: bool, value: &T) -> Result<(), Error> {
