@@ -1,115 +1,105 @@
-# Continuity Pack — verification 9 handoff
-
-## Release status: FAIL
-
-Candidate `461981a1524997439ec7238b9173c14b61adc426` at
-<https://local-records-continuity.sociobot.in> is **not releasable**. The
-independent verifier ran all 16 declared claim commands first, the complete
-test/build/package/live suite, and deployed API/PWA checks. Functional checks
-passed, but `cargo fmt --all -- --check` fails on
-`crates/continuity/src/main.rs:680`. This available formatting gate is required
-by the factory contract. Run `cargo fmt --all`, commit the formatting-only
-change, and rerun the verification commands recorded in
-`.factory/verification-9.md`.
-
-Verification 9 evidence and the exact passing checks are in
-`.factory/verification-9.md`. This status supersedes the historical polish
-handoff below.
-
----
-
-# Historical polish round 1 handoff
+# Continuity Pack — repair 8 handoff
 
 Date: 2026-08-30
 
-Work order: `local-records-continuity-polish-1`
+Work order: `local-records-continuity-repair-8`
 
-Deployed code commit: `79a9284`
+Verifier report: `.factory/verification-9.md` at
+`bad7af6ed42065469d6d9c44c9935202a3ff4aac`
+
+Repaired candidate: `461981a1524997439ec7238b9173c14b61adc426`
+
+Deployed code commit: `6b0a2b0`
 
 Live: <https://local-records-continuity.sociobot.in>
+
 Demo: <https://local-records-continuity.sociobot.in/demo/?demo=1>
 
-## Outcome
+## Release status: PASS
 
-All 28 findings in `.factory/review-1.md` are fixed and mapped in
-`.factory/polish-1.md`. No earlier review or polish file exists. The
-topographic-cartography identity, Rust CLI artifact class, and static Vite site
-remain intact.
+The sole verification-9 blocker is fixed. `cargo fmt --all` reformatted the
+closure at `crates/continuity/src/main.rs:680`. The root cause was that the
+documented default `npm test` gate did not invoke rustfmt. `npm test` now starts
+with `npm run test:format`, so the same source-format regression fails the main
+clean-clone gate.
 
-The desktop first action and facts fit at every tested short-desktop size. The
-phone demo shows real sample output on its first screen. `?demo=1` enters an
-isolated sample route; Reset demo and Start for real remove only `demo:*` data.
-Routes now have correct metadata and H1 focus restoration. Copy and README
-claims are either tested or removed.
+The managed API and its live assertions now identify this deployment as
+`local-records-continuity-repair-8`. No brief behavior, visual-system behavior,
+claim, storage contract, or artifact/deployment class changed.
 
-The live concurrency audit found one additional rate-limit defect. A paid
-client moving across network addresses could receive more than 20 admissions.
-The deployed fix uses the hashed license as the stable paid-client identity and
-a hashed address for anonymous traffic. The final live result is exactly 20
-handled requests and 40 throttled requests.
+## Clean local verification
 
-## Verification
-
-Run from a clean clone:
+Run from the repository root:
 
 ```sh
 npm ci
 npm test
+npm run typecheck
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
 npm run build
 cargo package --manifest-path crates/continuity/Cargo.toml --allow-dirty
 ```
 
-Each of the 16 `test` commands in `.factory/claims.json` was also executed
-individually from a clean clone. All passed.
+Results:
 
-Final results:
+- `npm ci`: 24 packages installed; 0 vulnerabilities.
+- All 16 exact commands in `.factory/claims.json`: passed sequentially before
+  the broader suite.
+- `npm test`: passed, including the new rustfmt regression gate; 6 Rust library
+  tests, 2 binary tests, 7 CLI integration tests, 1 doctest, 9 CLI claim tests,
+  10 API tests, and 36 local Playwright tests passed. Six deployment-only cases
+  were skipped as intended.
+- `npm run typecheck`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `npm run build`: passed and produced `target/release/continuity` plus
+  `dist/site/index.html`.
+- `cargo package`: passed; 12 files, 111.9 KiB unpacked and 29.0 KiB compressed.
+- Fresh package consumer: `cargo install --path crates/continuity --root
+  <temporary-root>` passed; `--help` was usable; `--json demo` restored and
+  verified all 3 sample files in a unique temporary workspace; `pack` without
+  `--target` exited 2 and wrote nothing.
+- Built asset budget: all JavaScript chunks total 5,424 gzip bytes and CSS is
+  4,547 gzip bytes. No font payload ships.
 
-- Rust: 6 library, 2 binary, 7 CLI integration, and 1 doctest passed.
-- CLI claims: 9 passed.
-- Managed API: 10 passed.
-- Local browser: 36 passed; 6 deployment-only/project-scope cases skipped.
-- Live browser: all 40 applicable cases passed; 2 project-scope cases skipped.
-  One Chromium process crashed during the final combined run. Its exact case
-  passed immediately in an isolated rerun; this was a runner failure, not a
-  page assertion failure.
-- Production rate limit: 60 concurrent requests produced 20 `403` and 40
-  `429`, with `Retry-After`.
-- `npm run build`: passed; produced `dist/site/index.html` and
-  `target/release/continuity`.
-- `cargo package`: passed; 12 files, 111.9 KiB unpacked and 29.0 KiB
-  compressed.
-- Initial assets: home JS 6.90 KB, shared JS 2.71 KB, CSS 16.61 KB
-  uncompressed.
-- Lighthouse 12.8.2: 100 performance, 100 accessibility, 100 best practices,
-  and 100 SEO.
-- Factory URL verifier: Home and Demo each have title, `lang=en`, one H1,
-  main landmark, labeled controls, complete image alt text, and zero console
-  errors.
+## Live verification
+
+- `PLAYWRIGHT_BASE_URL=https://local-records-continuity.sociobot.in npx
+  playwright test`: 40 passed; 2 local-only cases skipped. Desktop and 390 px,
+  keyboard tabs, route focus, 44 px targets, focus contrast, reduced motion,
+  privacy request logging, offline reload, service-worker update, legal and 404
+  routes, checkout safety, response headers, and managed API identity passed.
+- Playwright axe checks found 0 serious or critical issues.
+- Factory URL verifier passed Home and Demo with HTTP 200, `lang=en`, one H1,
+  a main landmark, complete image alt text, labeled buttons, and no console
+  errors. Recorded load times were 651 ms and 777 ms.
+- Mobile Lighthouse 12.8.2: performance 100, accessibility 100, best practices
+  100, SEO 100; LCP 1.5 s, CLS 0, total blocking time 50 ms.
+- `npm run test:deployment:rate-limit`: passed after a fresh fixed window. Of
+  60 concurrent requests, exactly 20 reached license verification and returned
+  403; 40 returned 429 with the documented rate-limit and retry headers.
+- `/api/build` and protected-download responses report
+  `local-records-continuity-repair-8`. Anonymous and reserved-header requests
+  return 401; an invalid product-license header returns 403.
+- SHA-256 comparisons matched the local build for Home, Demo, Privacy, Terms,
+  404, service worker, web manifest, hero art, and all five hashed assets.
 
 Evidence:
 
-- `.factory/evidence/home-1440x844.png`
-- `.factory/evidence/demo-390x844.png`
-- `.factory/evidence/lighthouse-summary.json`
-- `.factory/evidence/live-home/verify.json`
-- `.factory/evidence/live-demo/verify.json`
+- `.factory/evidence/repair-8-live-home/verify.json`
+- `.factory/evidence/repair-8-live-demo/verify.json`
+- `.factory/evidence/repair-8-lighthouse-summary.json`
 
 ## Deployment
 
-Built with `npm run build`. Deployed `dist/site` and `api` only to the
-existing `sf-local-records-continuity` Static Web App. No DNS, billing, shared
-service, or unrelated resource was read or changed.
+The production upload contained `dist/site` and this repository's `api` only.
+It targeted the existing `sf-local-records-continuity` Static Web App. No DNS,
+billing, shared database, key vault, app settings, or unrelated resource was
+read or changed.
 
-Cold production checks:
+## Known gaps and next steps
 
-- `/`, `/demo/?demo=1`, `/privacy/`, and `/terms/`: HTTP 200.
-- Unknown route: HTTP 404 with designed page and share metadata.
-- `/api/build`: `local-records-continuity-polish-1`.
-- Full live Playwright and URL-verifier checks: pass.
-
-## Known gaps
-
-None.
-
-Release binaries are intentionally not advertised because none are published.
-The crate is package-verified but was not published, per factory policy.
+No release-blocking gaps remain. Release binaries remain intentionally
+unpublished; the crate is package-verified, and factory registry credentials
+must be used for any future publication.
