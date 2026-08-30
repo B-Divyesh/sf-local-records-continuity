@@ -30,7 +30,10 @@ only inside that directory. It never reads the caller's records or uses the
 normal configuration. The output prints the exact workspace path. Delete that
 directory to reset or discard the run; the next command creates a new one.
 
-The browser preview does not read or write localStorage, IndexedDB, or OPFS.
-**Reset demo** returns its transcript to the Pack stage. **Start for real**
-returns to the installation guide. The browser preview is a recording; the CLI
-command performs the real pack, newest-pack check, and restore operations.
+The browser preview does not read or write localStorage, IndexedDB, OPFS, or
+the real application’s session-storage namespace. It uses only the
+`demo:continuity-offline` session key for its offline indicator. After its first
+direct visit, its own page shell and sample preview can reload offline. **Reset
+demo** returns its transcript to the Pack stage. **Start for real** returns to
+the installation guide. The browser preview is a recording; the CLI command
+performs the real pack, newest-pack check, and restore operations.

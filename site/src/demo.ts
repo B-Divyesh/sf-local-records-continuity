@@ -1,4 +1,5 @@
 import "./style.css";
+import { setUpPwa } from "./pwa";
 
 type DemoKey = "pack" | "verify" | "restore";
 
@@ -45,6 +46,10 @@ tabs.forEach((tab, index) => {
   });
 });
 if (tabs[0]) selectDemo(tabs[0]);
+
+// The direct catalog entry must be an offline-capable demo, without sharing
+// the real app's persisted state or license namespace.
+setUpPwa({ offlineStateKey: "demo:continuity-offline" });
 
 document.querySelector("#reset-demo")?.addEventListener("click", () => {
   if (tabs[0]) selectDemo(tabs[0], true);

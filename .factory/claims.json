@@ -64,10 +64,10 @@
   },
   {
     "id": "offline-guide",
-    "claim": "The guide works offline after the first visit.",
-    "where": "home facts and offline status",
+    "claim": "The guide and direct sample preview work offline after the first visit.",
+    "where": "home facts and offline status; /demo/ offline status",
     "test": "npm run build:site && npx playwright test --grep '@claim:offline-guide'",
-    "sandbox": "Own fresh browser context; load and await the service worker, set the context offline, reload, and assert the H1 and offline strip."
+    "sandbox": "Own fresh browser context; enter /demo/ directly with a sentinel real license, await a controlling service worker, set the context offline, reload, and assert the sample H1, offline strip, and unchanged real license."
   },
   {
     "id": "browser-privacy",

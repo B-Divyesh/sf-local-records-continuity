@@ -202,17 +202,35 @@ test("purchase rejects a registry entry with the wrong checkout route", async ({
   expect(checkoutRequests).toBe(0);
 });
 
-test("@claim:offline-guide installed shell remains readable offline", async ({ browser }) => {
+test("@claim:offline-guide direct demo installs its shell and reloads the sample offline", async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
   try {
-    await page.goto("/");
+    await context.addInitScript(() => {
+      localStorage.setItem("sb_license:local-records-continuity", "real-license-sentinel");
+      sessionStorage.setItem("continuity-offline", "real-offline-state-sentinel");
+    });
+    await page.goto("/demo/");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Try a recovery pack with sample records.");
     await page.evaluate(() => navigator.serviceWorker.ready);
+    await expect.poll(() => page.evaluate(() => navigator.serviceWorker.getRegistrations().then((registrations) => registrations.length))).toBe(1);
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+    await page.evaluate(async () => { await (await navigator.serviceWorker.ready).update(); });
     await context.setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event("offline")));
     await expect(page.locator("#network-strip")).toBeVisible();
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator("h1")).toContainText("recovery pack for local business records");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Try a recovery pack with sample records.");
+    await expect(page.locator("#network-strip")).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem("sb_license:local-records-continuity"))).toBe("real-license-sentinel");
+    expect(await page.evaluate(() => sessionStorage.getItem("continuity-offline"))).toBe("real-offline-state-sentinel");
+    expect(await page.evaluate(() => sessionStorage.getItem("demo:continuity-offline"))).toBe("true");
+    expect(errors).toEqual([]);
   } finally {
     await context.close();
   }

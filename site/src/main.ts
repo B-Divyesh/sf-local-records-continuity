@@ -1,4 +1,5 @@
 import "./style.css";
+import { setUpPwa } from "./pwa";
 
 type DemoKey = "pack" | "verify" | "restore";
 
@@ -65,16 +66,7 @@ document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => 
   });
 });
 
-const networkStrip = document.querySelector<HTMLElement>("#network-strip");
-const updateNetwork = (online = navigator.onLine): void => {
-  if (networkStrip) networkStrip.hidden = online;
-  if (online) sessionStorage.removeItem("continuity-offline");
-  else sessionStorage.setItem("continuity-offline", "true");
-};
-window.addEventListener("online", () => updateNetwork(true));
-window.addEventListener("offline", () => updateNetwork(false));
-document.querySelector("#network-retry")?.addEventListener("click", () => window.location.reload());
-updateNetwork(navigator.onLine && sessionStorage.getItem("continuity-offline") !== "true");
+setUpPwa();
 
 const SLUG = "local-records-continuity";
 const API_BASE = import.meta.env.VITE_BILLING_API_BASE ?? "https://api.sociobot.in/api/v1";
@@ -246,7 +238,3 @@ buyButton?.addEventListener("click", async () => {
     buyButton.disabled = false;
   }
 });
-
-if ("serviceWorker" in navigator && location.protocol !== "file:") {
-  window.addEventListener("load", () => { void navigator.serviceWorker.register("/sw.js"); });
-}
