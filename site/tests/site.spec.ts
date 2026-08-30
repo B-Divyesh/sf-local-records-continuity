@@ -38,6 +38,25 @@ test("home has a complete accessible route with no console errors", async ({ pag
   expect(results.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
 });
 
+test("reviewed copy stays plain, consistent, and release-honest", async ({ page }) => {
+  await page.goto("/");
+  const homeCopy = await page.locator("body").innerText();
+  expect(homeCopy).not.toMatch(/dry-read|encrypted archive|exits loudly|complete safety path|honest boundary|factory publishes/i);
+  expect(homeCopy).toContain("The manifest lists the business, source files, and verification command.");
+  expect(homeCopy).toContain("Release binaries are not available yet.");
+  await expect(page.getByRole("tab", { name: "Check" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy install command" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy setup command" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy pack command" })).toBeVisible();
+
+  const readme = await readFile("README.md", "utf8");
+  expect(readme).not.toMatch(/dry-read|archive check|production code path|complete safety path|factory publishes|Rust 1\.85|is equivalent|Releases begin|revoke.*automatically/i);
+  expect(readme).toContain("Build from source. Release binaries are not available yet:");
+  const catalog = (await readFile(".factory/catalog-description.txt", "utf8")).trim();
+  expect(catalog.length).toBeLessThanOrEqual(120);
+  expect(catalog).toMatch(/^Build\b/);
+});
+
 test("desktop first screen keeps the audience, sample action, explanation, and facts in view", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "Desktop first-read regression.");
   for (const viewport of [
