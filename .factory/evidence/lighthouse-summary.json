@@ -1,0 +1,11 @@
+{
+  "url": "http://127.0.0.1:4173/",
+  "date": "2026-08-30",
+  "mode": "Lighthouse 12.8.2, headless Chromium, local production preview",
+  "scores": {
+    "performance": 100,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100
+  }
+}
