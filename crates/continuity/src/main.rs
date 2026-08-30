@@ -680,7 +680,10 @@ fn schedule(args: ScheduleArgs, json: bool) -> Result<(), Error> {
             };
             let mut lines: Vec<&str> = existing_text
                 .lines()
-                .filter(|line| !line.contains("# continuity-pack-dry-read") && !line.contains("# continuity-pack-scheduled-check"))
+                .filter(|line| {
+                    !line.contains("# continuity-pack-dry-read")
+                        && !line.contains("# continuity-pack-scheduled-check")
+                })
                 .collect();
             lines.push(&cron);
             let new_table = format!("{}\n", lines.join("\n"));
