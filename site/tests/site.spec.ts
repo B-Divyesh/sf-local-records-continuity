@@ -71,6 +71,22 @@ test("paid files require an active license and use the protected API", async ({ 
   await expect(page.locator("#download-status")).toHaveText("Download ready.");
 });
 
+test("protected-download throttling tells a buyer exactly when to retry", async ({ page }) => {
+  await page.route("https://api.sociobot.in/api/v1/products/local-records-continuity/verify?license=test-token", (route) =>
+    route.fulfill({ json: { valid: true, reason: "ok", expires_at: null } })
+  );
+  await page.route("**/api/plus-download?asset=quarterly-restore-drill.md", (route) => route.fulfill({
+    status: 429,
+    headers: { "Retry-After": "42", "Content-Type": "application/json" },
+    body: JSON.stringify({ error: "too many protected-download requests; try again shortly" })
+  }));
+
+  await page.goto("/?license=test-token#plus");
+  await expect(page.locator("#plus-downloads")).toBeVisible();
+  await page.getByRole("button", { name: "Download quarterly restore drill" }).click();
+  await expect(page.locator("#download-status")).toHaveText("Too many download requests. Try again in 42 seconds.");
+});
+
 test("release install and response policy contracts are deployable", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "Static release contract only needs one browser project.");
   await page.goto("/#guide");
@@ -144,14 +160,20 @@ test("purchase rejects a registry entry with the wrong checkout route", async ({
   expect(checkoutRequests).toBe(0);
 });
 
-test("installed shell remains readable offline", async ({ page, context }) => {
-  await page.goto("/");
-  await page.evaluate(() => navigator.serviceWorker.ready);
-  await context.setOffline(true);
-  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
-  await expect(page.locator("#network-strip")).toBeVisible();
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.locator("h1")).toContainText("backup you can find");
+test("installed shell remains readable offline", async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  try {
+    await page.goto("/");
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await context.setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await expect(page.locator("#network-strip")).toBeVisible();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("h1")).toContainText("backup you can find");
+  } finally {
+    await context.close();
+  }
 });
 
 test("legal pages and mobile layout remain usable", async ({ page }, testInfo) => {

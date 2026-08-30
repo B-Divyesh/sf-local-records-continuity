@@ -1,0 +1,9 @@
+[
+  {
+    "id": "protected-download-rate-limit",
+    "claim": "Protected Plus downloads are rate limited during a burst.",
+    "where": "Protected download API response policy",
+    "test": "npm run test:claim:protected-download-rate-limit",
+    "sandbox": "60 concurrent POST requests to the shipped function with one client IP; the requests after the 20-request window return 429 and Retry-After."
+  }
+]

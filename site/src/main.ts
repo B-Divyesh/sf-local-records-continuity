@@ -198,6 +198,12 @@ document.querySelectorAll<HTMLButtonElement>("[data-plus-asset]").forEach((butto
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) {
+        if (response.status === 429) {
+          const retryAfter = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
+          const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? ` in ${retryAfter} seconds` : " shortly";
+          if (downloadStatus) downloadStatus.textContent = `Too many download requests. Try again${wait}.`;
+          return;
+        }
         if (response.status === 401 || response.status === 403) {
           storageSet(CACHE_KEY, JSON.stringify({ token, valid: false, checkedAt: Date.now() } satisfies VerdictCache));
           setLicenseState(false, "This license is no longer active. Check the token or purchase Continuity Plus.", "error");
@@ -212,7 +218,7 @@ document.querySelectorAll<HTMLButtonElement>("[data-plus-asset]").forEach((butto
       URL.revokeObjectURL(url);
       if (downloadStatus) downloadStatus.textContent = "Download ready.";
     } catch {
-      if (downloadStatus && !downloadStatus.textContent?.includes("no longer active")) {
+      if (downloadStatus && !downloadStatus.textContent?.includes("no longer active") && !downloadStatus.textContent?.includes("Too many")) {
         downloadStatus.textContent = "The protected download is unavailable. Check your connection and try again.";
       }
     } finally {

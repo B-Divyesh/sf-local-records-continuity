@@ -6,6 +6,10 @@ function context() {
   return { log: { warn() {} }, res: undefined };
 }
 
+test.beforeEach(() => {
+  plusDownload.resetRateLimitForTests();
+});
+
 test("rejects every advertised download without a bearer license", async () => {
   for (const [asset, paidContent] of Object.entries(plusDownload.ASSETS)) {
     const ctx = context();
@@ -52,4 +56,66 @@ test("does not expose unknown files even with a token", async () => {
   const ctx = context();
   await plusDownload(ctx, { query: { asset: "../../secret" }, headers: { authorization: "Bearer token" } });
   assert.equal(ctx.res.status, 404);
+});
+
+test("@claim:protected-download-rate-limit limits the verifier's exact 60-request anonymous burst", async () => {
+  const responses = await Promise.all(Array.from({ length: 60 }, async () => {
+    const ctx = context();
+    await plusDownload(ctx, {
+      query: { asset: "quarterly-restore-drill.md" },
+      headers: { "x-azure-clientip": "203.0.113.44" }
+    });
+    return ctx.res;
+  }));
+
+  assert.equal(responses.filter((res) => res.status === 401).length, 20);
+  const throttled = responses.filter((res) => res.status === 429);
+  assert.equal(throttled.length, 40);
+  for (const res of throttled) {
+    assert.match(res.headers["Retry-After"], /^(?:[1-9]|[1-5][0-9]|60)$/);
+    assert.equal(res.headers["Cache-Control"], "no-store");
+    assert.deepEqual(res.body, { error: "too many protected-download requests; try again shortly" });
+  }
+});
+
+test("rate limits authenticated bursts before upstream verification", async (t) => {
+  let verificationCalls = 0;
+  t.mock.method(global, "fetch", async () => {
+    verificationCalls += 1;
+    return { ok: true, json: async () => ({ valid: true, reason: "ok" }) };
+  });
+
+  const responses = await Promise.all(Array.from({ length: 60 }, async () => {
+    const ctx = context();
+    await plusDownload(ctx, {
+      query: { asset: "quarterly-restore-drill.md" },
+      headers: { authorization: "Bearer valid-token", "x-azure-clientip": "203.0.113.44" }
+    });
+    return ctx.res;
+  }));
+
+  assert.equal(responses.filter((res) => res.status === 200).length, 20);
+  const throttled = responses.filter((res) => res.status === 429);
+  assert.equal(throttled.length, 40);
+  assert.equal(verificationCalls, 20, "throttled requests must not call Sociobot");
+  for (const res of throttled) {
+    assert.match(res.headers["Retry-After"], /^(?:[1-9]|[1-5][0-9]|60)$/);
+    assert.equal(res.headers["Cache-Control"], "no-store");
+    assert.deepEqual(res.body, { error: "too many protected-download requests; try again shortly" });
+  }
+});
+
+test("rate-limit retry timing resets accurately and clients have separate windows", () => {
+  let clock = 10_000;
+  const limiter = plusDownload.createRateLimiter({ limit: 2, windowMs: 60_000, now: () => clock });
+
+  assert.deepEqual(limiter.take("198.51.100.8"), { allowed: true });
+  assert.deepEqual(limiter.take("198.51.100.8"), { allowed: true });
+  assert.deepEqual(limiter.take("198.51.100.9"), { allowed: true });
+  assert.deepEqual(limiter.take("198.51.100.8"), { allowed: false, retryAfterSeconds: 60 });
+
+  clock += 59_001;
+  assert.deepEqual(limiter.take("198.51.100.8"), { allowed: false, retryAfterSeconds: 1 });
+  clock += 999;
+  assert.deepEqual(limiter.take("198.51.100.8"), { allowed: true });
 });

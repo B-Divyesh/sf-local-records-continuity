@@ -11,6 +11,7 @@
     "preview:site": "vite preview --config site/vite.config.ts",
     "test": "cargo test --workspace && npm run test:api && npm run test:site",
     "test:api": "node --test api/**/*.test.cjs",
+    "test:claim:protected-download-rate-limit": "node --test --test-name-pattern='@claim:protected-download-rate-limit' api/**/*.test.cjs",
     "test:site": "npm run build:site && playwright test",
     "typecheck": "tsc --noEmit -p site/tsconfig.json"
   },
