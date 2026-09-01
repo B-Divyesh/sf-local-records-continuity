@@ -35,6 +35,13 @@
     "sandbox": "Run the full demo with libc network socket creation blocked and observed; assert success and no socket attempt; run pack without --target and assert exit 2 with no files."
   },
   {
+    "id": "required-sources",
+    "claim": "A missing required source stops the pack, names the missing path, and writes no pack artifacts.",
+    "where": "home three-step workflow",
+    "test": "node --test --test-name-pattern='@claim:required-sources' tests/claims.test.mjs",
+    "sandbox": "Fresh temporary workspace; configure one absent required source, run pack, assert exit 3 and the missing path, then assert the target is empty and no output directory exists."
+  },
+  {
     "id": "loud-scheduled-check",
     "claim": "A scheduled check exits non-zero with an actionable error when its target is unavailable, stale, corrupt, or unreadable.",
     "where": "home workflow, README scheduling section",

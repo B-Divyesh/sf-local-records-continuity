@@ -116,8 +116,7 @@ restore, exit codes, and JSON output do not require a Plus license. The site
 confirms that checkout is available before opening Sociobot. An unavailable
 product stays on this page. The site checks the license before each paid
 download. Paid files are absent from the public build and offline cache. You can
-save or remove a license on the product site. Sociobot/Dodo is the merchant of
-record.
+save or remove a license on the product site. Checkout opens on Sociobot.
 
 ## Develop and verify
 

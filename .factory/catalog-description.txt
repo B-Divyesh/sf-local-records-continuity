@@ -1,1 +1,1 @@
-Build and check encrypted recovery packs from local or self-hosted business records.
+Build, check, and restore encrypted recovery packs for local business records.

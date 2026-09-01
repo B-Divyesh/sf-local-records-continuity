@@ -42,7 +42,10 @@ test("reviewed copy stays plain, consistent, and release-honest", async ({ page 
   await page.goto("/");
   const homeCopy = await page.locator("body").innerText();
   expect(homeCopy).not.toMatch(/dry-read|encrypted archive|exits loudly|complete safety path|honest boundary|factory publishes/i);
+  expect(homeCopy).not.toMatch(/compressed|merchant of record|handles refunds/i);
   expect(homeCopy).toContain("The manifest lists the business, source files, and verification command.");
+  expect(homeCopy).toContain("Required sources fail the run if they disappear.");
+  expect(homeCopy).toContain("Checkout opens on Sociobot.");
   expect(homeCopy).toContain("Release binaries are not available yet.");
   await expect(page.getByRole("tab", { name: "Check" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Copy install command" })).toBeVisible();
@@ -50,10 +53,16 @@ test("reviewed copy stays plain, consistent, and release-honest", async ({ page 
   await expect(page.getByRole("button", { name: "Copy pack command" })).toBeVisible();
 
   const readme = await readFile("README.md", "utf8");
-  expect(readme).not.toMatch(/dry-read|archive check|production code path|complete safety path|factory publishes|Rust 1\.85|is equivalent|Releases begin|revoke.*automatically|pilot-api|RATE_LIMIT_BLOB_BASE_URL|private container SAS|append blob counter|Static Web App settings|Release builds use the production Sociobot API/i);
+  expect(readme).not.toMatch(/dry-read|archive check|production code path|complete safety path|factory publishes|Rust 1\.85|is equivalent|Releases begin|revoke.*automatically|compressed|merchant of record|handles refunds|pilot-api|RATE_LIMIT_BLOB_BASE_URL|private container SAS|append blob counter|Static Web App settings|Release builds use the production Sociobot API/i);
   expect(readme).toContain("Deploy `dist/site/` with configured environment settings.");
+  expect(readme).toContain("Checkout opens on Sociobot.");
   expect(readme).not.toMatch(/macOS Keychain|Windows Credential Manager|operating system keychain/i);
   expect(readme).toContain("Build from source. Release binaries are not available yet:");
+  for (const legalPath of ["site/privacy/index.html", "site/terms/index.html"]) {
+    const legalCopy = await readFile(legalPath, "utf8");
+    expect(legalCopy).not.toMatch(/merchant of record|handles (?:checkout|refunds)|processes payment/i);
+    expect(legalCopy).toContain("Checkout opens on Sociobot.");
+  }
   const catalog = (await readFile(".factory/catalog-description.txt", "utf8")).trim();
   expect(catalog.length).toBeLessThanOrEqual(120);
   expect(catalog).toMatch(/^Build\b/);

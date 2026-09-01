@@ -150,6 +150,31 @@ test("@claim:explicit-local-target makes no network call and requires a named ta
   }
 });
 
+test("@claim:required-sources stops before writing artifacts when a required source is missing", async () => {
+  const workspace = await mkdtemp(join(tmpdir(), "continuity-missing-source-"));
+  const config = join(workspace, "continuity.toml");
+  const target = join(workspace, "target");
+  const missingSource = "exports/missing-invoices.csv";
+  await mkdir(target);
+  await writeFile(config, `business_name = "Missing Source Test"\noutput_dir = "packs"\n\n[[records]]\nlabel = "invoices"\npath = "${missingSource}"\nrequired = true\n`);
+
+  try {
+    await assert.rejects(
+      execFileAsync(binary, ["--ci", "pack", "--config", config, "--target", target], {
+        cwd: workspace,
+        env: { ...process.env, CONTINUITY_PASSPHRASE: "a-long-missing-source-test-passphrase" }
+      }),
+      (error) => error.code === 3
+        && error.stderr.includes("required source is missing")
+        && error.stderr.includes(missingSource)
+    );
+    assert.deepEqual(await readdir(target), [], "a failed pack must leave the target empty");
+    await assert.rejects(readdir(join(workspace, "packs")), (error) => error.code === "ENOENT");
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("@claim:loud-scheduled-check reports unavailable, stale, corrupt, and unreadable targets", async () => {
   const missing = join(tmpdir(), `continuity-missing-target-${process.pid}-${Date.now()}`);
   await assert.rejects(

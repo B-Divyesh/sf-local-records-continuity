@@ -6,7 +6,8 @@
   complete pack, check, and restore run in a unique temporary workspace.
 - Add a dedicated one-click `/demo/` preview and a plain first screen for
   small businesses using self-hosted or local admin software.
-- Inventory fourteen visitor claims and run each through a tagged regression.
+- Inventory eighteen visitor claims and run each through a tagged regression.
+- Prove that missing required sources stop a pack before artifacts are written.
 - Enforce the protected-download window across function workers with Azure
   Blob Storage's atomic append-size condition.
 - Add a response-header CSP with `frame-ancestors`, a designed 404 response,
