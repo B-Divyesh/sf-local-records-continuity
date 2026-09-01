@@ -86,6 +86,9 @@ contrast.
 - `site/public/social-card.webp`: a locally cropped 1200×630 derivative of the
   original contour-vault illustration for link previews. No new source asset
   or external material was introduced.
+- `site/public/contour-vault-720.webp`: a 720×480 responsive derivative of the
+  original contour-vault illustration, resized locally with ImageMagick for
+  smaller mobile and first-screen transfers.
 - `site/public/apple-touch-icon.png`: a locally cropped 180×180 detail from the
   same original illustration for device home screens.
 - Small route/check/seal icons are original inline SVG built from simple map

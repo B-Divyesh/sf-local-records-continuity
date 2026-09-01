@@ -1,6 +1,6 @@
-const CACHE = "continuity-pack-shell-v7";
+const CACHE = "continuity-pack-shell-v8";
 const GENERATED_ASSETS = [/* __PRECACHE_ASSETS__ */];
-const SHELL = ["/", "/demo/", "/privacy/", "/terms/", "/404.html", "/contour-vault.webp", "/social-card.webp", "/mark.svg", "/apple-touch-icon.png", "/site.webmanifest", ...GENERATED_ASSETS];
+const SHELL = ["/", "/demo/", "/privacy/", "/terms/", "/404.html", "/contour-vault.webp", "/contour-vault-720.webp", "/social-card.webp", "/mark.svg", "/apple-touch-icon.png", "/site.webmanifest", ...GENERATED_ASSETS];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));

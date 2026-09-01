@@ -17,6 +17,12 @@
       }
     },
     {
+      "route": "/contour-vault-720.webp",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
       "route": "/social-card.webp",
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
