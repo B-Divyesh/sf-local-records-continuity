@@ -1,4 +1,4 @@
-const CACHE = "continuity-pack-shell-v6";
+const CACHE = "continuity-pack-shell-v7";
 const GENERATED_ASSETS = [/* __PRECACHE_ASSETS__ */];
 const SHELL = ["/", "/demo/", "/privacy/", "/terms/", "/404.html", "/contour-vault.webp", "/social-card.webp", "/mark.svg", "/apple-touch-icon.png", "/site.webmanifest", ...GENERATED_ASSETS];
 
@@ -17,5 +17,17 @@ self.addEventListener("fetch", (event) => {
     const copy = response.clone();
     caches.open(CACHE).then((cache) => cache.put(event.request, copy));
     return response;
-  }).catch(() => caches.match(event.request, { ignoreVary: true }).then((cached) => cached || (event.request.mode === "navigate" ? caches.match("/404.html", { ignoreVary: true }) : undefined))));
+  }).catch(async () => {
+    const cached = await caches.match(event.request, { ignoreVary: true });
+    if (cached) return cached;
+
+    // The landing page opens /demo/?demo=1, while the offline shell is
+    // precached at /demo/. Treat the query as demo-mode state, not a separate
+    // document, so the one-click sample reloads after the network is gone.
+    if (event.request.mode === "navigate" && url.pathname === "/demo/" && url.searchParams.get("demo") === "1") {
+      return caches.match("/demo/", { ignoreVary: true });
+    }
+
+    return event.request.mode === "navigate" ? caches.match("/404.html", { ignoreVary: true }) : undefined;
+  }));
 });

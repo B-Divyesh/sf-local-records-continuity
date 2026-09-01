@@ -81,7 +81,7 @@
     "claim": "The guide and direct sample preview work offline after the first visit.",
     "where": "home facts and offline status; /demo/ offline status",
     "test": "npm run build:site && npx playwright test --grep '@claim:offline-guide'",
-    "sandbox": "Own fresh browser context; enter /demo/ directly, go offline, and reload; assert the demo leaves real storage sentinels unchanged, then confirm the cached Home guide opens."
+    "sandbox": "Own fresh browser context; enter the landing action URL /demo/?demo=1, go offline, and reload; assert the demo leaves real storage sentinels unchanged, then confirm the cached Home guide opens."
   },
   {
     "id": "browser-privacy",

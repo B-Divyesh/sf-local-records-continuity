@@ -266,10 +266,10 @@ test("live managed API exposes this build and preserves product-license authenti
   const identity = await page.request.get("/api/build");
   expect(identity.status()).toBe(200);
   expect(identity.headers()["cache-control"]).toBe("no-store");
-  expect(identity.headers()["x-continuity-api-build"]).toBe("local-records-continuity-repair-9");
+  expect(identity.headers()["x-continuity-api-build"]).toBe("local-records-continuity-repair-10");
   await expect(identity.json()).resolves.toMatchObject({
     product: "local-records-continuity",
-    release: "local-records-continuity-repair-9",
+    release: "local-records-continuity-repair-10",
     license_header: "x-continuity-license"
   });
 
@@ -283,7 +283,7 @@ test("live managed API exposes this build and preserves product-license authenti
   expect(invalid.status()).toBe(403);
   expect(await invalid.json()).toEqual({ error: "license is not active" });
   for (const response of [missing, reserved, invalid]) {
-    expect(response.headers()["x-continuity-api-build"]).toBe("local-records-continuity-repair-9");
+    expect(response.headers()["x-continuity-api-build"]).toBe("local-records-continuity-repair-10");
   }
 });
 
@@ -333,7 +333,7 @@ test("purchase rejects a registry entry with the wrong checkout route", async ({
   expect(checkoutRequests).toBe(0);
 });
 
-test("@claim:offline-guide direct demo installs its shell and reloads the sample offline", async ({ browser }) => {
+test("@claim:offline-guide landing-action demo URL reloads the sample offline", async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
   const errors: string[] = [];
@@ -351,7 +351,10 @@ test("@claim:offline-guide direct demo installs its shell and reloads the sample
       }));
       sessionStorage.setItem("continuity-offline", "real-offline-state-sentinel");
     });
-    await page.goto("/demo/");
+    // This is the exact URL opened by the landing-page primary action. It
+    // previously missed the precached /demo/ shell after an offline reload.
+    await page.goto("/demo/?demo=1");
+    await expect(page).toHaveURL(/\/demo\/\?demo=1$/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Try a recovery pack with sample records.");
     await page.evaluate(() => navigator.serviceWorker.ready);
     await expect.poll(() => page.evaluate(() => navigator.serviceWorker.getRegistrations().then((registrations) => registrations.length))).toBe(1);
