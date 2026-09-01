@@ -5,7 +5,7 @@ handoff—not another backup subscription. It gathers configured business record
 and records their SHA-256 checksums. It encrypts the pack, writes a restore
 manifest, and checks the target on schedule.
 
-It does not administer databases, upload to hosted storage, or claim that an
+It does not administer databases, upload to hosted storage, or claim that a
 pack check is a full application restore. You remain responsible for making
 your application exports and periodically testing a real restore.
 
@@ -134,6 +134,8 @@ npm run build
 
 `npm run build` builds the release CLI and static site. The deployable site is
 in `dist/site/`. `npm run build:site` builds only the site.
+From a clean clone, the site build first installs the exact locked site tools
+it needs. `npm ci` remains the fastest way to prepare every development command.
 Release builds use the production Sociobot API by default; explicitly set
 `VITE_BILLING_API_BASE=https://pilot-api.sociobot.in/api/v1` only for staging.
 The managed download function uses `RATE_LIMIT_BLOB_BASE_URL`, a private
