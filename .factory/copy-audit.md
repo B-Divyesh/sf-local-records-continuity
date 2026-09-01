@@ -1,6 +1,6 @@
-# Copy audit — polish round 1
+# Copy audit — polish round 2
 
-Date: 2026-08-30
+Date: 2026-09-01
 
 Method: every sentence in `site/index.html` was read aloud and counted. Hyphenated
 terms and numbers count as one word. Executable commands are excluded. Runtime
@@ -61,8 +61,10 @@ result. The demo stage is **Check** everywhere. Error messages state what
 happened and what to do next. No runtime sentence exceeds 22 words.
 
 The README was checked with the same rules. Its former 23–37 word sentences are
-split. Unsupported release, minimum-Rust, single-binary, scheduler-install, and
-automatic-refund statements are absent.
+split. Unsupported release, minimum-Rust, single-binary, scheduler-install,
+automatic-refund, cross-platform keychain, and internal deployment assertions
+are absent. The retained build and deployment instructions are direct and
+contain no internal infrastructure jargon.
 
 ## Terminology
 

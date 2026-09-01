@@ -80,10 +80,10 @@ continuity schedule --target /media/offsite/backups --daily-at 03:15
 A failed scheduled check returns a non-zero exit code. Its error names an
 unavailable, stale, corrupt, or unreadable target.
 
-### Passphrases and OS keychains
+### Passphrases and the Linux keychain
 
 Passphrases are resolved in this order: `--passphrase-file`,
-`CONTINUITY_PASSPHRASE`, then an OS keychain entry saved by `continuity key
+`CONTINUITY_PASSPHRASE`, then a Linux Secret Service entry saved by `continuity key
 store`. Interactive terminal input is the final fallback unless `--ci` is set.
 
 ```sh
@@ -92,9 +92,8 @@ continuity key status
 continuity key forget
 ```
 
-Keychain storage uses macOS Keychain (`security`), Linux Secret Service
-(`secret-tool`), or Windows Credential Manager. The CLI does not write a raw
-passphrase into its configuration or generated recovery files.
+Linux keychain storage uses Secret Service through `secret-tool`. The CLI does
+not write a raw passphrase into its configuration or generated recovery files.
 
 ### Exit codes
 
@@ -132,16 +131,8 @@ npm test
 npm run build
 ```
 
-`npm run build` builds the release CLI and static site. The deployable site is
-in `dist/site/`. `npm run build:site` builds only the site.
-From a clean clone, the site build first installs the exact locked site tools
-it needs. `npm ci` remains the fastest way to prepare every development command.
-Release builds use the production Sociobot API by default; explicitly set
-`VITE_BILLING_API_BASE=https://pilot-api.sociobot.in/api/v1` only for staging.
-The managed download function uses `RATE_LIMIT_BLOB_BASE_URL`, a private
-container SAS limited to create, add, and write permissions. Production keeps
-that value in Static Web App settings, never in source control. Each fixed
-one-minute window uses a separate append blob counter.
+`npm run build` builds the release CLI and static site. `npm run build:site`
+builds only the site. Deploy `dist/site/` with configured environment settings.
 
 ## Repository map
 

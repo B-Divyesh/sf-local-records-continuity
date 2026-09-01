@@ -4,7 +4,7 @@ const BUILD = Object.freeze({
   product: "local-records-continuity",
   artifact: "managed-protected-download-api",
   version: "0.1.0",
-  release: "local-records-continuity-repair-10",
+  release: "local-records-continuity-polish-2",
   license_header: "x-continuity-license"
 });
 

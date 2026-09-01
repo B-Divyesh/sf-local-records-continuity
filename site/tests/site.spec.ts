@@ -50,7 +50,9 @@ test("reviewed copy stays plain, consistent, and release-honest", async ({ page 
   await expect(page.getByRole("button", { name: "Copy pack command" })).toBeVisible();
 
   const readme = await readFile("README.md", "utf8");
-  expect(readme).not.toMatch(/dry-read|archive check|production code path|complete safety path|factory publishes|Rust 1\.85|is equivalent|Releases begin|revoke.*automatically/i);
+  expect(readme).not.toMatch(/dry-read|archive check|production code path|complete safety path|factory publishes|Rust 1\.85|is equivalent|Releases begin|revoke.*automatically|pilot-api|RATE_LIMIT_BLOB_BASE_URL|private container SAS|append blob counter|Static Web App settings|Release builds use the production Sociobot API/i);
+  expect(readme).toContain("Deploy `dist/site/` with configured environment settings.");
+  expect(readme).not.toMatch(/macOS Keychain|Windows Credential Manager|operating system keychain/i);
   expect(readme).toContain("Build from source. Release binaries are not available yet:");
   const catalog = (await readFile(".factory/catalog-description.txt", "utf8")).trim();
   expect(catalog.length).toBeLessThanOrEqual(120);
@@ -266,10 +268,10 @@ test("live managed API exposes this build and preserves product-license authenti
   const identity = await page.request.get("/api/build");
   expect(identity.status()).toBe(200);
   expect(identity.headers()["cache-control"]).toBe("no-store");
-  expect(identity.headers()["x-continuity-api-build"]).toBe("local-records-continuity-repair-10");
+  expect(identity.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-2");
   await expect(identity.json()).resolves.toMatchObject({
     product: "local-records-continuity",
-    release: "local-records-continuity-repair-10",
+    release: "local-records-continuity-polish-2",
     license_header: "x-continuity-license"
   });
 
@@ -283,7 +285,7 @@ test("live managed API exposes this build and preserves product-license authenti
   expect(invalid.status()).toBe(403);
   expect(await invalid.json()).toEqual({ error: "license is not active" });
   for (const response of [missing, reserved, invalid]) {
-    expect(response.headers()["x-continuity-api-build"]).toBe("local-records-continuity-repair-10");
+    expect(response.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-2");
   }
 });
 

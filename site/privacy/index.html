@@ -29,7 +29,7 @@
       <p class="updated">Effective 30 August 2026</p>
       <p>Continuity Pack keeps business records under your control. The CLI has no analytics, telemetry, advertising, or background network requests. It reads configured paths and writes a pack only to the target you name.</p>
       <h2>Data on your device</h2>
-      <p>The CLI creates encrypted <code>.cpack</code> files, readable manifests, and JSON receipts. Passphrases can come from a file, environment variable, hidden prompt, or operating system keychain. We do not receive these files or passphrases.</p>
+      <p>The CLI creates encrypted <code>.cpack</code> files, readable manifests, and JSON receipts. Passphrases can come from a file, environment variable, hidden prompt, or Linux Secret Service. We do not receive these files or passphrases.</p>
       <h2>License data</h2>
       <p>This site stores your Plus license token and last result in browser storage. It sends the token to Sociobot only for verification or a requested download. The token is removed from the visible URL after checkout. Paid files are not stored in the public site cache.</p>
       <p>The download endpoint stores a one-way hash of the license token or network address. It also stores one-byte request counters in Azure Blob Storage. Each fixed one-minute window has a separate counter. No business record data is sent.</p>
@@ -38,7 +38,7 @@
       <h2>Analytics and third parties</h2>
       <p>This version uses no analytics, tracking pixels, third-party fonts, or third-party runtime scripts. Sociobot requests happen only when you verify a license or ask to buy Plus. The purchase action checks checkout availability before leaving this site.</p>
       <h2>Removal and contact</h2>
-      <p>Clear this site’s storage in your browser to remove its saved license. Use <code>continuity key forget</code> to remove the CLI keychain entry. For privacy questions, contact <a href="mailto:privacy@sociobot.in">privacy@sociobot.in</a>.</p>
+      <p>Clear this site’s storage in your browser to remove its saved license. On Linux, use <code>continuity key forget</code> to remove the Secret Service entry. For privacy questions, contact <a href="mailto:privacy@sociobot.in">privacy@sociobot.in</a>.</p>
     </main>
     <footer><a class="wordmark footer-mark" href="/"><span>Continuity Pack</span></a><p>CLI for tested local business-record recovery. Built by Param Factory · v0.1.0</p><nav aria-label="Legal navigation"><a href="/privacy/" aria-current="page">Privacy</a><a href="/terms/">Terms</a></nav></footer>
   </body>

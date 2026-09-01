@@ -222,7 +222,7 @@ test("@claim:free-core-and-json runs the complete sample without a license and r
   }
 });
 
-test("@claim:passphrase-sources accepts a file, environment value, hidden prompt, and OS keychain", async () => {
+test("@claim:passphrase-sources accepts a file, environment value, hidden prompt, and Linux Secret Service", async () => {
   const result = await demo();
   const passphraseFile = join(result.workspace, "demo-passphrase.txt");
   const keychainBin = join(result.workspace, "keychain-bin");
@@ -272,6 +272,55 @@ test("@claim:passphrase-sources accepts a file, environment value, hidden prompt
     for (const captured of [fromFile.stdout, fromFile.stderr, fromEnvironment.stdout, fromEnvironment.stderr, prompted, fromKeychain.stdout, fromKeychain.stderr]) {
       assert.doesNotMatch(captured, new RegExp(demoPassphrase));
     }
+  } finally {
+    await removeDemo(result);
+  }
+});
+
+test("@claim:passphrase-precedence selects file, then environment, then Linux Secret Service", async () => {
+  const result = await demo();
+  const fixtureDirectory = join(result.workspace, "precedence-bin");
+  const secretTool = join(fixtureDirectory, "secret-tool");
+  const keychainMarker = join(result.workspace, "keychain-read");
+  const correctFile = join(result.workspace, "correct-passphrase.txt");
+  const wrongFile = join(result.workspace, "wrong-passphrase.txt");
+  try {
+    await mkdir(fixtureDirectory);
+    await writeFile(correctFile, `${demoPassphrase}\n`, { mode: 0o600 });
+    await writeFile(wrongFile, "wrong-file-passphrase\n", { mode: 0o600 });
+    await writeFile(secretTool, `#!/bin/sh\nprintf called > ${shellQuote(keychainMarker)}\nif [ "$1" = lookup ]; then printf %s "$CONTINUITY_TEST_KEYCHAIN_VALUE"; exit 0; fi\nexit 1\n`);
+    await chmod(secretTool, 0o700);
+    const pathWithFixture = `${fixtureDirectory}:${process.env.PATH ?? ""}`;
+    const baseEnvironment = {
+      PATH: pathWithFixture,
+      CONTINUITY_TEST_KEYCHAIN_VALUE: "wrong-keychain-passphrase"
+    };
+
+    const fileWins = await execFileAsync(binary, ["--ci", "--json", "--passphrase-file", correctFile, "verify", result.target_pack], {
+      env: { ...baseEnvironment, CONTINUITY_PASSPHRASE: "wrong-environment-passphrase" }
+    });
+    assert.equal(JSON.parse(fileWins.stdout).authenticated, true);
+    await assert.rejects(readFile(keychainMarker), (error) => error.code === "ENOENT");
+
+    const environmentWins = await execFileAsync(binary, ["--ci", "--json", "verify", result.target_pack], {
+      env: { ...baseEnvironment, CONTINUITY_PASSPHRASE: demoPassphrase }
+    });
+    assert.equal(JSON.parse(environmentWins.stdout).authenticated, true);
+    await assert.rejects(readFile(keychainMarker), (error) => error.code === "ENOENT");
+
+    await assert.rejects(
+      execFileAsync(binary, ["--ci", "--json", "--passphrase-file", wrongFile, "verify", result.target_pack], {
+        env: { ...baseEnvironment, CONTINUITY_PASSPHRASE: demoPassphrase }
+      }),
+      (error) => error.code === 4 && /authentication failed/.test(error.stdout)
+    );
+    await assert.rejects(readFile(keychainMarker), (error) => error.code === "ENOENT");
+
+    const keychainWinsLast = await execFileAsync(binary, ["--ci", "--json", "verify", result.target_pack], {
+      env: { ...baseEnvironment, CONTINUITY_TEST_KEYCHAIN_VALUE: demoPassphrase }
+    });
+    assert.equal(JSON.parse(keychainWinsLast.stdout).authenticated, true);
+    assert.equal(await readFile(keychainMarker, "utf8"), "called");
   } finally {
     await removeDemo(result);
   }

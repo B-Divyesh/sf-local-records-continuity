@@ -57,10 +57,17 @@
   },
   {
     "id": "passphrase-sources",
-    "claim": "The CLI accepts passphrases from a file, environment variable, hidden prompt, or supported OS keychain without writing them into configuration or recovery artifacts.",
+    "claim": "The CLI accepts passphrases from a file, environment variable, hidden prompt, or Linux Secret Service without writing them into configuration or recovery artifacts.",
     "where": "home feature ledger, privacy page, README",
     "test": "node --test --test-name-pattern='@claim:passphrase-sources' tests/claims.test.mjs",
     "sandbox": "Verify through a mode-0600 file, environment value, hidden pseudo-terminal prompt, and fixture Linux Secret Service lookup; scan generated configuration, artifacts, stdout, and stderr for a canary passphrase."
+  },
+  {
+    "id": "passphrase-precedence",
+    "claim": "Passphrase selection uses a passphrase file before the environment, and the environment before Linux Secret Service.",
+    "where": "README passphrase section",
+    "test": "node --test --test-name-pattern='@claim:passphrase-precedence' tests/claims.test.mjs",
+    "sandbox": "Provide conflicting file, environment, and fixture Secret Service values; assert the file wins first, the environment wins without a file, and neither higher-priority source reads the keychain."
   },
   {
     "id": "schedule-preview",
