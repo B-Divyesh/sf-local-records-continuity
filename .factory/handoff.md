@@ -1,123 +1,41 @@
-# Continuity Pack — repair 9 handoff
+# Continuity Pack — verification 11 handoff
 
 Date: 2026-09-01
-
-Work order: `local-records-continuity-repair-9`
-
-Verifier report repaired: `.factory/verification-10.md` at
-`ab4c3559f6421a8d0bfb6551a21a5004b0b54561`
-
-Release code: `7cdc27fdc998311f7a2a69da4cf0ddafd8a3d751`
-
+Work order: `local-records-continuity-verify-11`
+Candidate: `cb9ca4161af7f683ffa1fb7ed2305e83b137ca93`
 Live: <https://local-records-continuity.sociobot.in>
 
-Demo: <https://local-records-continuity.sociobot.in/demo/?demo=1>
+## Release status: FAIL
 
-## Release status: PASS
+Do not release this candidate. The deployed landing-page action opens
+`/demo/?demo=1`; after first visit and service-worker activation, that exact
+URL reloads offline to the designed 404 rather than the sample demo. This
+contradicts the declared offline claim and demo-sandbox contract.
 
-The release-blocking clean-clone claims failure and the README grammar defect
-from verification 10 are repaired. The static site and managed API are deployed
-to the existing `sf-local-records-continuity` Static Web App. The live API
-identifies this release as `local-records-continuity-repair-9`.
+The full independent evidence and retest procedure are in
+`.factory/verification-11.md`.
 
-## What changed
+## Verified
 
-- Reproduced the verifier's exact pre-repair failure in a fresh clone with no
-  `node_modules`:
+- All 16 declared claims passed first from independent clean no-dependency
+  clones; `npm test`, typecheck, Clippy, and production build passed.
+- The package was packed, installed into a fresh consumer, and its installed
+  CLI completed `--ci --json demo` with `verified: true`.
+- All 18 deployed static files SHA-256 match the candidate build. Live desktop
+  and 390px checks found no console/page errors, no third-party demo requests,
+  and no axe serious/critical findings.
+- Live service-worker registration and update work. The non-query `/demo/`
+  route reloads offline; only the actual one-click `?demo=1` route fails.
+- The managed endpoint identity matches `local-records-continuity-repair-9`.
+  Its documented allowance is enforced: 20 requests per 60 seconds; a 60-request
+  burst produced 20 admitted responses and 40 `429` responses with
+  `Retry-After`.
+- Live Lighthouse: Performance 100, Accessibility 100, LCP 1.513 s, TBT 38 ms,
+  CLS 0.
 
-  ```text
-  npm run build:site
-  sh: 1: vite: not found
-  exit 127
-  ```
+## Required next step
 
-- Added `scripts/ensure-site-tools.mjs`. `npm run build:site` now checks for
-  the locked Vite, Playwright, TypeScript, and axe tools; when called cold, it
-  runs the exact `npm ci --include=dev --ignore-scripts --no-audit --fund=false`
-  install before invoking Vite. It never depends on a previous claim having
-  installed dependencies.
-- Added `tests/clean-clone-claims.test.mjs` and made it part of `npm test`.
-  It creates one independent, no-`node_modules` Git clone for each of the 16
-  exact `.factory/claims.json` commands and executes that command unchanged.
-  It fails if any command returns non-zero or emits `vite: not found`.
-- Corrected README wording from “an pack check” to “a pack check.”
-- Updated the managed API, protected-download header, Playwright live
-  assertions, and rate-limit verifier to the current repair-9 build identity.
-
-The researched brief, CLI artifact class, local-first storage behavior, demo
-isolation, visual system, claim wording, payment flow, and prior passing
-behavior are unchanged.
-
-## Verification
-
-From the repository root:
-
-```sh
-npm ci
-npm test
-npm run typecheck
-cargo clippy --workspace --all-targets -- -D warnings
-npm run build
-cargo package --manifest-path crates/continuity/Cargo.toml --allow-dirty
-```
-
-Results:
-
-- `npm ci`: passed; 24 packages installed, 0 vulnerabilities.
-- `npm run test:claims:clean`: passed. Every one of the 16 manifest commands
-  ran from its own fresh clone before manual dependency setup, including all
-  six browser/site claims that formerly exited 127.
-- `npm test`: passed: rustfmt, the clean-clone regression, Rust unit/binary/
-  integration tests, 9 CLI claim tests, 10 managed API tests, and local
-  Playwright browser tests. Local deployment-only cases skip by design.
-- `npm run typecheck`, `cargo fmt --all -- --check`, and Clippy with
-  `-D warnings`: passed.
-- `npm run build`: passed; produced `target/release/continuity` and
-  `dist/site/index.html`.
-- `cargo package`: passed; `continuity-pack-0.1.0.crate` is 29,732 bytes.
-- Fresh package consumer: `cargo install --path crates/continuity --root
-  <temporary-root> --locked` passed. The installed command's `--version` and
-  `--help` worked; `--json demo` verified all 3 sample files in its own
-  temporary workspace and left the caller directory empty.
-- Built web assets remain within budget: route JavaScript totals 12,265 bytes
-  uncompressed (about 5.4 KiB gzip) and CSS is 16,608 bytes (4.6 KiB gzip).
-
-## Live deployment and verification
-
-- Deployment: `/opt/fleet/lib/deploy-static.sh local-records-continuity
-  dist/site`, deployment ID `a0e8da61-86d5-4cd3-956a-a9ee27397da6`; it reused
-  the existing product Static Web App and uploaded `dist/site` plus this
-  repository's `api` only.
-- `GET /api/build` is 200/no-store and returns version `0.1.0`, release
-  `local-records-continuity-repair-9`, and `x-continuity-license` as the
-  product credential header.
-- `PLAYWRIGHT_BASE_URL=https://local-records-continuity.sociobot.in npx
-  playwright test`: 40 passed; 2 desktop-only skips were expected. It covers
-  desktop and 390px mobile, keyboard tabs/history focus, 44px controls,
-  focus contrast, reduced motion, axe serious/critical findings, PWA update
-  and offline reload, demo isolation, privacy request logging, legal/404
-  routes, response policy, checkout safety, and live identity.
-- `verify-url.sh` passed Home (640 ms) and Demo (703 ms): both are 200 with a
-  title, `lang=en`, one H1, main landmark, complete image alt text, named
-  buttons, and no console errors.
-- The live link crawl returned HTTP 200 for every HTTP(S) link on Home, Demo,
-  Privacy, Terms, and 404; documented `mailto:` links were excluded.
-- `npm run test:deployment:rate-limit` passed against the repair-9 deployment:
-  anonymous/reserved-header requests returned 401, an invalid product license
-  returned 403, and the 60-request fixed-window burst returned exactly 20
-  admitted 403s and 40 throttled 429s with positive `Retry-After` values.
-- Lighthouse 12.8.2 mobile: Performance 100, Accessibility 100, Best
-  Practices 100, SEO 100; LCP 1.505 s, TBT 32 ms, CLS 0, total transfer
-  160,958 bytes.
-
-Evidence:
-
-- `.factory/evidence/repair-9-live-home/verify.json`
-- `.factory/evidence/repair-9-live-demo/verify.json`
-- `.factory/evidence/repair-9-lighthouse.json`
-
-## Known gaps and next steps
-
-No release-blocking gaps remain. Release binaries remain intentionally
-unpublished; the crate is package-verified and factory registry credentials
-are required for any future publication.
+Normalize or ignore the demo query component in the service worker’s offline
+navigation cache lookup, add a regression test for `/demo/?demo=1`, deploy it,
+then re-run the clean-clone claims and live offline probe described in
+`.factory/verification-11.md`.
