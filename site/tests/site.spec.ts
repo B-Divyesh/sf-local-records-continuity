@@ -277,10 +277,10 @@ test("live managed API exposes this build and preserves product-license authenti
   const identity = await page.request.get("/api/build");
   expect(identity.status()).toBe(200);
   expect(identity.headers()["cache-control"]).toBe("no-store");
-  expect(identity.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-2");
+  expect(identity.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-3");
   await expect(identity.json()).resolves.toMatchObject({
     product: "local-records-continuity",
-    release: "local-records-continuity-polish-2",
+    release: "local-records-continuity-polish-3",
     license_header: "x-continuity-license"
   });
 
@@ -294,7 +294,7 @@ test("live managed API exposes this build and preserves product-license authenti
   expect(invalid.status()).toBe(403);
   expect(await invalid.json()).toEqual({ error: "license is not active" });
   for (const response of [missing, reserved, invalid]) {
-    expect(response.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-2");
+    expect(response.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-3");
   }
 });
 

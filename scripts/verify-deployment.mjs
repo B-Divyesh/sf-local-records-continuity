@@ -15,12 +15,12 @@ assert.match(await missing.text(), /This page does not exist/);
 
 const build = await fetch(`${baseUrl}/api/build`);
 assert.equal(build.status, 200);
-assert.equal(build.headers.get("x-continuity-api-build"), "local-records-continuity-polish-2");
+assert.equal(build.headers.get("x-continuity-api-build"), "local-records-continuity-polish-3");
 assert.deepEqual(await build.json(), {
   product: "local-records-continuity",
   artifact: "managed-protected-download-api",
   version: "0.1.0",
-  release: "local-records-continuity-polish-2",
+  release: "local-records-continuity-polish-3",
   license_header: "x-continuity-license"
 });
 
@@ -37,7 +37,7 @@ const productHeader = await fetch(endpoint, {
 });
 assert.equal(productHeader.status, 403);
 assert.ok([anonymous, reservedHeader, productHeader]
-  .every((response) => response.headers.get("x-continuity-api-build") === "local-records-continuity-polish-2"));
+  .every((response) => response.headers.get("x-continuity-api-build") === "local-records-continuity-polish-3"));
 
 const delay = 60_000 - (Date.now() % 60_000) + 1_500;
 process.stdout.write(`Waiting ${delay} ms for a fresh fixed rate-limit window...\n`);
@@ -61,4 +61,4 @@ assert.ok(responses.every((response) => response.headers.get("ratelimit-policy")
 assert.ok(responses.every((response) => response.headers.get("ratelimit-backend") === "shared-azure-blob"));
 assert.ok(throttled.every((response) => /^[1-9][0-9]?$/.test(response.headers.get("retry-after") ?? "")));
 
-console.log(JSON.stringify({ endpoint, csp: true, demo: true, notFound: 404, apiBuild: "local-records-continuity-polish-2", auth: { anonymous: 401, reservedHeader: 401, productHeader: 403 }, requests: responses.length, counts }));
+console.log(JSON.stringify({ endpoint, csp: true, demo: true, notFound: 404, apiBuild: "local-records-continuity-polish-3", auth: { anonymous: 401, reservedHeader: 401, productHeader: 403 }, requests: responses.length, counts }));
