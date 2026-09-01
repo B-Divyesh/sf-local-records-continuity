@@ -1,4 +1,4 @@
-# Copy audit — polish round 2
+# Copy audit — polish round 3
 
 Date: 2026-09-01
 
@@ -29,7 +29,7 @@ status and error messages were also checked for the 22-word cap and banned words
 | 7 | Name the files and folders that matter. | Pass |
 | 8 | Required sources fail the run if they disappear. | Pass |
 | 5 | Each file gets a SHA-256. | Pass |
-| 9 | The complete pack is compressed and authenticated with XChaCha20-Poly1305. | Pass |
+| 7 | The complete pack is authenticated with XChaCha20-Poly1305. | Pass |
 | 11 | A scheduled check decrypts the pack and compares every file hash. | Pass |
 | 12 | A failed check returns a non-zero exit code and names the problem. | Pass |
 | 5 | Read the sample recovery result. | Pass |
@@ -41,7 +41,7 @@ status and error messages were also checked for the 22-word cap and banned words
 | 6 | Release binaries are not available yet. | Pass |
 | 7 | Pack, check, verify, and restore are free. | Pass |
 | 12 | Plus provides a multi-location configuration workbook, restore-drill worksheet, and staff handoff guide. | Pass |
-| 9 | Sociobot/Dodo is the merchant of record and handles refunds. | Pass |
+| 4 | Checkout opens on Sociobot. | Pass |
 | 3 | No license stored. | Pass |
 | 6 | The free CLI remains fully available. | Pass |
 | 6 | CLI for tested local business-record recovery. | Pass |
@@ -62,9 +62,13 @@ happened and what to do next. No runtime sentence exceeds 22 words.
 
 The README was checked with the same rules. Its former 23–37 word sentences are
 split. Unsupported release, minimum-Rust, single-binary, scheduler-install,
-automatic-refund, cross-platform keychain, and internal deployment assertions
-are absent. The retained build and deployment instructions are direct and
-contain no internal infrastructure jargon.
+merchant/refund, cross-platform keychain, compression, and internal deployment
+assertions are absent. The retained build and deployment instructions are
+direct and contain no internal infrastructure jargon.
+
+Privacy and Terms were also checked. They state the observable checkout route
+without asserting merchant or refund handling. No sentence exceeds 22 words or
+contains a banned marketing word.
 
 ## Terminology
 

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f3ecdd" />
+    <meta name="description" content="Preview Continuity Pack with bundled sample records and run the isolated CLI demo in a temporary folder." />
+    <link rel="canonical" href="https://local-records-continuity.sociobot.in/demo/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Demo — Continuity Pack" />
+    <meta property="og:description" content="Preview the bundled recovery-pack sample and its isolated demo command." />
+    <meta property="og:image" content="https://local-records-continuity.sociobot.in/social-card.webp" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Demo — Continuity Pack" />
+    <meta name="twitter:description" content="Preview the bundled recovery-pack sample and its isolated demo command." />
+    <meta name="twitter:image" content="https://local-records-continuity.sociobot.in/social-card.webp" />
+    <title>Demo — Continuity Pack</title>
+    <link rel="icon" href="/mark.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <script type="module" crossorigin src="/assets/demo-CA99hCPN.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/pwa-DkkMxYGr.js">
+    <link rel="stylesheet" crossorigin href="/assets/pwa-mqm-YiPR.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <div class="network-strip" id="network-strip" role="status" hidden>
+      <span>You’re offline. This sample preview remains available from the local site cache.</span>
+      <button type="button" id="network-retry">Try again</button>
+    </div>
+    <aside class="demo-banner" aria-label="Demo mode">
+      <strong>Demo — sample data, nothing is saved here.</strong>
+      <div><button type="button" id="reset-demo">Reset demo</button><a href="/#guide">Start for real</a></div>
+    </aside>
+    <header class="site-header">
+      <a class="wordmark" href="/" aria-label="Continuity Pack home">
+        <svg aria-hidden="true" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15"/><circle cx="20" cy="20" r="8"/><path d="M20 1v8M39 20h-8M20 39v-8M1 20h8"/></svg>
+        <span>Continuity Pack</span>
+      </a>
+      <nav aria-label="Primary navigation"><a href="/">Home</a><a class="nav-essential" href="/#guide">Install</a><a class="nav-essential nav-buy" href="/#plus">Plus</a><a href="/privacy/">Privacy</a></nav>
+    </header>
+    <main id="main" class="demo-main">
+      <section class="demo-intro" aria-labelledby="demo-page-title">
+        <div class="demo-intro-copy">
+          <p class="coordinate">Bundled CLI sample</p>
+          <h1 id="demo-page-title">Try a recovery pack with sample records.</h1>
+          <p class="lede">The sample uses fictional bookshop records. It never reads your files.</p>
+          <div class="tab-list" role="tablist" aria-label="Recovery pack demo stages">
+            <button role="tab" aria-selected="true" aria-controls="demo-panel" id="tab-pack" data-demo="pack">Pack</button>
+            <button role="tab" aria-selected="false" aria-controls="demo-panel" id="tab-verify" data-demo="verify" tabindex="-1">Check</button>
+            <button role="tab" aria-selected="false" aria-controls="demo-panel" id="tab-restore" data-demo="restore" tabindex="-1">Restore</button>
+          </div>
+        </div>
+        <div class="terminal demo-page-terminal" id="demo-panel" role="tabpanel" aria-labelledby="tab-pack" tabindex="0">
+          <div class="terminal-bar"><span>continuity demo · sample log</span><span>temporary workspace</span></div>
+          <pre id="demo-output" aria-live="polite"><code></code></pre>
+          <p class="terminal-note" id="demo-note"></p>
+        </div>
+        <div class="demo-run">
+          <p class="coordinate">Recorded command result</p>
+          <h2>Run the same sample locally.</h2>
+          <p>The command creates a new temporary workspace. It packs, checks, and restores three bundled files.</p>
+          <div class="copy-row demo-command"><code tabindex="0" aria-label="Demo command">continuity demo</code><button class="copy-button" type="button" data-copy="continuity demo" data-label="Copy demo command">Copy demo command</button></div>
+          <p class="action-note">The command prints the temporary workspace path.</p>
+        </div>
+      </section>
+      <p id="copy-status" class="sr-only" aria-live="polite"></p>
+    </main>
+    <footer>
+      <a class="wordmark footer-mark" href="/"><span>Continuity Pack</span></a>
+      <p>CLI for tested local business-record recovery. Built by Param Factory · v0.1.0</p>
+      <nav aria-label="Legal navigation"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a></nav>
+    </footer>
+  </body>
+</html>
