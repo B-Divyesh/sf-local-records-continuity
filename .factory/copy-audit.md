@@ -1,6 +1,6 @@
-# Copy audit — polish round 3
+# Copy audit — polish round 4
 
-Date: 2026-09-01
+Date: 2026-09-02
 
 Method: every sentence in `site/index.html` was read aloud and counted. Hyphenated
 terms and numbers count as one word. Executable commands are excluded. Runtime
@@ -69,6 +69,15 @@ direct and contain no internal infrastructure jargon.
 Privacy and Terms were also checked. They state the observable checkout route
 without asserting merchant or refund handling. No sentence exceeds 22 words or
 contains a banned marketing word.
+
+## Round 4 privacy claims
+
+The Privacy page continues to state the counter's one-way-hash, one-byte, and
+one-minute behavior. `download-counter-privacy` records the storage writes and
+checks each published detail. “No business record data is sent” is now backed
+by `no-record-upload` for browser license and protected-download requests, and
+by `explicit-local-target` for the CLI. No landing-page sentence changed in
+this round; the first-screen audit above remains current.
 
 ## Terminology
 
