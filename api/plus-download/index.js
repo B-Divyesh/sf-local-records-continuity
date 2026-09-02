@@ -7,7 +7,7 @@ const RATE_LIMIT_MAX_REQUESTS = 20;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const MAX_RATE_LIMIT_CLIENTS = 10_000;
 const RATE_LIMIT_BLOB_BASE_URL = process.env.RATE_LIMIT_BLOB_BASE_URL;
-const API_BUILD = "local-records-continuity-polish-3";
+const API_BUILD = "local-records-continuity-polish-4";
 const LICENSE_HEADER = "x-continuity-license";
 const ASSETS = Object.freeze({
   "multi-location-config.toml": {
@@ -306,5 +306,6 @@ module.exports.API_BUILD = API_BUILD;
 module.exports.LICENSE_HEADER = LICENSE_HEADER;
 module.exports.createRateLimiter = createRateLimiter;
 module.exports.createAzureBlobRateLimiter = createAzureBlobRateLimiter;
+module.exports.rateLimitClientId = rateLimitClientId;
 module.exports.rateLimitIdentity = rateLimitIdentity;
 module.exports.resetRateLimitForTests = () => downloadRateLimiter.reset();

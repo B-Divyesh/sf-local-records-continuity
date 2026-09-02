@@ -112,6 +112,13 @@
     "sandbox": "60 concurrent POST requests plus a six-worker Azure Blob atomic-append simulation; one license crosses six network addresses; exactly 20 are admitted and 40 return 429 with Retry-After."
   },
   {
+    "id": "download-counter-privacy",
+    "claim": "The protected-download counter stores only a one-way license or network-address hash in a separate one-minute counter, adding one byte per request.",
+    "where": "privacy page, protected-download response policy",
+    "test": "node --test --test-name-pattern='@claim:download-counter-privacy' api/**/*.test.cjs",
+    "sandbox": "Recorded Azure Blob adapter; exercise two requests for one license in one window and one address in the next, then assert no raw identifier is written, paths use SHA-256 values, and each admission appends one byte."
+  },
+  {
     "id": "licensed-download",
     "claim": "Plus field-kit files are returned only after a live active-license check and are absent from the public build.",
     "where": "Plus section, privacy page, README",
@@ -124,5 +131,12 @@
     "where": "Plus section, terms, README",
     "test": "npm run build:site && npx playwright test --grep '@claim:plus-price-and-checkout'",
     "sandbox": "Recorded production-registry fixture; assert exact price copy and navigation only to the matching Sociobot checkout URL."
+  },
+  {
+    "id": "no-record-upload",
+    "claim": "License verification and protected downloads send only the license and requested asset, never business record data.",
+    "where": "privacy page",
+    "test": "npm run build:site && npx playwright test --grep '@claim:no-record-upload'",
+    "sandbox": "Fresh browser page with recorded verification and download responses; record URL, headers, and body for every request, then assert known bundled invoice, customer, and policy values never appear."
   }
 ]

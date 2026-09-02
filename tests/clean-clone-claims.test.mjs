@@ -34,7 +34,7 @@ function runClaim(command, cwd) {
 
 test("@regression:clean-clone-claims run independently before manual npm setup", { timeout: 1_200_000 }, async (t) => {
   const claims = JSON.parse(await readFile(claimsPath, "utf8"));
-  assert.equal(claims.length, 18, "the release claims manifest changed; update this independent runner deliberately");
+  assert.equal(claims.length, 20, "the release claims manifest changed; update this independent runner deliberately");
 
   const temporaryRoot = await mkdtemp(resolve(tmpdir(), "continuity-clean-claims-"));
   try {

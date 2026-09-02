@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { createHash } = require("node:crypto");
 const { access } = require("node:fs/promises");
 const plusDownload = require("./index.js");
 
@@ -68,7 +69,7 @@ test("@claim:licensed-download returns field-kit files only after an active chec
   assert.equal(valid.res.status, 200);
   assert.match(valid.res.body, /Quarterly restore drill/);
   assert.equal(valid.res.headers["Content-Disposition"], 'attachment; filename="quarterly-restore-drill.md"');
-  assert.equal(valid.res.headers["X-Continuity-API-Build"], "local-records-continuity-polish-3");
+  assert.equal(valid.res.headers["X-Continuity-API-Build"], "local-records-continuity-polish-4");
   assert.deepEqual(verificationUrls.map((url) => new URL(url).searchParams.get("license")), ["invalid-token", "valid token"]);
 
   for (const asset of Object.keys(plusDownload.ASSETS)) {
@@ -168,6 +169,71 @@ test("shared Azure append condition admits only 20 requests across isolated work
   assert.equal(results.filter((result) => result.allowed).length, 20);
   assert.equal(results.filter((result) => !result.allowed).length, 40);
   assert.ok(results.filter((result) => !result.allowed).every((result) => result.retryAfterSeconds === 60));
+});
+
+test("@claim:download-counter-privacy stores a one-way identifier and one byte per one-minute counter", async () => {
+  const writes = [];
+  const blobs = new Map();
+  let clock = 120_000;
+  const storageFetch = async (input, init) => {
+    const url = new URL(String(input));
+    const body = init.body ? Buffer.from(init.body) : Buffer.alloc(0);
+    writes.push({
+      url: url.toString(),
+      path: url.pathname,
+      query: Object.fromEntries(url.searchParams),
+      method: init.method,
+      headers: init.headers,
+      body
+    });
+    if (!url.searchParams.has("comp")) {
+      if (blobs.has(url.pathname)) return { status: 409 };
+      blobs.set(url.pathname, 0);
+      return { status: 201 };
+    }
+    const maximum = Number(init.headers["x-ms-blob-condition-maxsize"]);
+    const length = blobs.get(url.pathname);
+    if (length === undefined) return { status: 404 };
+    if (length >= maximum) return { status: 412 };
+    blobs.set(url.pathname, length + body.length);
+    return { status: 201 };
+  };
+  const limiter = plusDownload.createAzureBlobRateLimiter({
+    baseUrl: "https://storage.example/rate-limits?sig=recorded-fixture",
+    now: () => clock,
+    fetchFn: storageFetch
+  });
+  const license = "license-that-must-not-be-persisted";
+  const address = "203.0.113.77";
+  const licenseHash = createHash("sha256").update(`license:${license}`).digest("hex");
+  const addressHash = createHash("sha256").update(`address:${address}`).digest("hex");
+  assert.equal(plusDownload.rateLimitClientId(`license:${license}`), licenseHash);
+  assert.equal(plusDownload.rateLimitClientId(`address:${address}`), addressHash);
+
+  assert.deepEqual(await limiter.take(`license:${license}`), { allowed: true });
+  clock += 1;
+  assert.deepEqual(await limiter.take(`license:${license}`), { allowed: true });
+  clock = 180_000;
+  assert.deepEqual(await limiter.take(`address:${address}`), { allowed: true });
+
+  const storedText = writes.map((write) => `${write.url}\n${JSON.stringify(write.headers)}\n${write.body.toString("utf8")}`).join("\n");
+  assert.doesNotMatch(storedText, new RegExp(license));
+  assert.equal(storedText.includes(address), false);
+  const expectedLicenseCounter = `/rate-limits/v1/${licenseHash}/2`;
+  const expectedAddressCounter = `/rate-limits/v1/${addressHash}/3`;
+  assert.ok(writes.every((write) => [expectedLicenseCounter, expectedAddressCounter].includes(write.path)));
+  assert.ok(writes.every((write) => write.query.sig === "recorded-fixture"));
+
+  const appends = writes.filter((write) => write.query.comp === "appendblock");
+  assert.equal(appends.length, 3);
+  for (const append of appends) {
+    assert.equal(append.method, "PUT");
+    assert.equal(append.headers["Content-Length"], "1");
+    assert.deepEqual(append.body, Buffer.from([1]));
+    assert.equal(append.headers["x-ms-blob-condition-maxsize"], "20");
+  }
+  assert.equal(blobs.get(expectedLicenseCounter), 2);
+  assert.equal(blobs.get(expectedAddressCounter), 1);
 });
 
 test("rate-limit retry timing resets accurately and clients have separate windows", () => {

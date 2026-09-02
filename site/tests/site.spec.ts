@@ -277,10 +277,10 @@ test("live managed API exposes this build and preserves product-license authenti
   const identity = await page.request.get("/api/build");
   expect(identity.status()).toBe(200);
   expect(identity.headers()["cache-control"]).toBe("no-store");
-  expect(identity.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-3");
+  expect(identity.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-4");
   await expect(identity.json()).resolves.toMatchObject({
     product: "local-records-continuity",
-    release: "local-records-continuity-polish-3",
+    release: "local-records-continuity-polish-4",
     license_header: "x-continuity-license"
   });
 
@@ -294,7 +294,7 @@ test("live managed API exposes this build and preserves product-license authenti
   expect(invalid.status()).toBe(403);
   expect(await invalid.json()).toEqual({ error: "license is not active" });
   for (const response of [missing, reserved, invalid]) {
-    expect(response.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-3");
+    expect(response.headers()["x-continuity-api-build"]).toBe("local-records-continuity-polish-4");
   }
 });
 
@@ -470,6 +470,61 @@ test("@claim:browser-privacy normal and demo flows make same-origin requests onl
   await page.getByRole("tab", { name: "Check" }).click();
   const origins = [...new Set(requests.map((url) => new URL(url).origin))];
   expect(origins).toEqual([expectedOrigin]);
+});
+
+test("@claim:no-record-upload license and protected-download requests never contain sample record data", async ({ page }) => {
+  const requests: Array<{ url: string; method: string; headers: Record<string, string>; body: string | null }> = [];
+  const token = "privacy-license-fixture";
+  const verificationUrl = `https://api.sociobot.in/api/v1/products/local-records-continuity/verify?license=${token}`;
+  const downloadPath = "/api/plus-download?asset=quarterly-restore-drill.md";
+  page.on("request", (request) => {
+    requests.push({
+      url: request.url(),
+      method: request.method(),
+      headers: request.headers(),
+      body: request.postData()
+    });
+  });
+  await page.route(verificationUrl, (route) => route.fulfill({ json: { valid: true, reason: "ok", expires_at: null } }));
+  await page.route(`**${downloadPath}`, (route) => route.fulfill({
+    status: 200,
+    headers: {
+      "Content-Type": "text/markdown; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="quarterly-restore-drill.md"'
+    },
+    body: "# Quarterly restore drill\n"
+  }));
+
+  await page.goto("/#plus");
+  await page.getByLabel("License token").fill(token);
+  await page.getByRole("button", { name: "Verify license" }).click();
+  await expect(page.locator("#license-status")).toContainText("active on this device");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download quarterly restore drill" }).click();
+  await download;
+  await expect(page.locator("#download-status")).toHaveText("Download ready.");
+
+  const sensitiveRecordValues = [
+    "Maple Street Books",
+    "INV-1048",
+    "Northwind Reading Group",
+    "orders@northwind-reading.example",
+    "Riverbank Primary School",
+    "Juniper Cafe",
+    "DEMO-COVER-2026"
+  ];
+  const serializedRequests = requests.map((request) => `${request.url}\n${JSON.stringify(request.headers)}\n${request.body ?? ""}`).join("\n");
+  for (const value of sensitiveRecordValues) expect(serializedRequests).not.toContain(value);
+
+  const externalRequests = requests.filter((request) => new URL(request.url).origin !== expectedOrigin);
+  expect(externalRequests).toHaveLength(1);
+  expect(externalRequests[0]).toMatchObject({ url: verificationUrl, method: "GET", body: null });
+  expect(new URL(externalRequests[0].url).searchParams.get("license")).toBe(token);
+
+  const downloadRequest = requests.find((request) => new URL(request.url).pathname === "/api/plus-download");
+  expect(downloadRequest).toMatchObject({ method: "POST", body: null });
+  expect(new URL(downloadRequest!.url).searchParams.get("asset")).toBe("quarterly-restore-drill.md");
+  expect(downloadRequest!.headers["x-continuity-license"]).toBe(token);
 });
 
 test("all visible links and controls meet the 44px target baseline", async ({ page }) => {
