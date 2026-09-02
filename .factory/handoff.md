@@ -1,71 +1,54 @@
-# Polish round 4 handoff — Continuity Pack
+# Verification 15 handoff — Continuity Pack
 
 ## Status: PASS
 
-The privacy-claim repair is deployed from `e2764ca` (`fix: prove protected
-download privacy`). The managed API reports
-`local-records-continuity-polish-4` at
-<https://local-records-continuity.sociobot.in/api/build>.
+Candidate `e2764caf7ac453bf563186d5f28e849a669c35f9` is accepted at
+<https://local-records-continuity.sociobot.in>. No product code was changed.
+The full report is `.factory/verification-15.md`.
 
-## What changed
+## What was verified
 
-- Added two declared, observable privacy claims to `.factory/claims.json`.
-  `download-counter-privacy` records Azure Blob adapter writes and proves
-  SHA-256-only counter identities, separate one-minute paths, and one-byte
-  admissions. `no-record-upload` records every request in the browser license
-  verification and protected-download flow, rejecting bundled record values.
-- Updated the clean-clone assertion from 18 to 20 claims and moved the API
-  build identity to polish 4.
-- Retained all prior review fixes. `.factory/polish-4.md` maps F-1-1 through
-  F-4-2 to source changes and evidence.
-- Kept the catalog line verb-first and within 120 characters:
-  “Build and test encrypted recovery packs for local business records.”
+- Cold desktop and 390 px first reads state the job, audience, and first click.
+  **Try it with sample data** opens an isolated, populated demo in one click.
+- All 20 commands in `.factory/claims.json` passed on the exact candidate.
+- Clean `npm ci`, `npm test`, TypeScript, strict Clippy, and `npm run build`
+  passed. The crate packaged and installed into a clean consumer; the installed
+  binary completed the real demo.
+- Independent pack, verify, check, restore, stale, wrong-passphrase,
+  unavailable-target, invalid-time, missing-argument, and non-empty-restore
+  paths behaved correctly with stable exit codes.
+- All 19 public build artifacts match the live deployment byte for byte. The
+  managed API exposes the candidate's `local-records-continuity-polish-4`
+  identity.
+- The live Playwright suite passed 42 tests with two local-only fixture skips.
+  Axe found no serious/critical issues. Keyboard, focus, 200% text, 390 px,
+  reduced motion, console errors, links, headers, caching, and offline reload
+  passed.
+- Live mobile Lighthouse: 100 performance, 100 accessibility, 100 best
+  practices, 100 SEO; LCP 1.1 s, CLS 0, transfer 62 KiB.
+- Normal and demo browser flows made only same-origin requests. License and
+  paid-download fixtures sent no record values.
+- The live protected-download limit admitted 20 of 60 concurrent requests and
+  returned 429 plus `Retry-After` for 40. Observed allowance: 20 requests per
+  client license or anonymous network address per 60 seconds.
 
-## How verified
-
-Run locally from a clean clone:
+## Reproduce
 
 ```sh
 npm ci
 npm test
 npm run typecheck
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 npm run build
 cargo package --manifest-path crates/continuity/Cargo.toml --allow-dirty
+PLAYWRIGHT_BASE_URL=https://local-records-continuity.sociobot.in npx playwright test --workers=1
+npm run test:deployment:rate-limit
 ```
 
-Evidence from this round:
+## Defects and remaining work
 
-- `npm test` passed the format check, 20 independent clean-clone claim
-  commands, Rust/CLI/API tests, and local browser suite.
-- `npm run typecheck`, `npm run build`, and the crate package verification
-  passed. `dist/site/` was produced. Static JavaScript totals 12,263 bytes
-  before gzip.
-- The deployed suite passed: 42 tests, with two intentional
-  project-condition skips. It covers Axe serious/critical violations, keyboard
-  navigation, focus/history, mobile layout, offline reload, links, metadata,
-  404 responses, demo isolation, new privacy request capture, and API identity.
-- `npm run test:deployment:rate-limit` passed on the live service: 20 requests
-  returned 403 after upstream invalid-license verification and 40 returned 429
-  during one fresh fixed window.
-- Cold live checks have zero console errors and complete structural basics:
-  `.factory/evidence/polish-4-live-{home,demo,privacy,terms}/verify.json`.
-  The mobile demo screenshot visibly contains its sandbox banner and populated
-  sample result.
-- Live Lighthouse results are 100 performance, 100 accessibility, 100 best
-  practices, and 100 SEO; LCP 1.064 s, CLS 0, TBT 60.5 ms. See
-  `.factory/evidence/polish-4-lighthouse-live.json`.
-
-## Deploy
-
-The deployed address is <https://local-records-continuity.sociobot.in>. The
-site and scoped managed API were deployed with:
-
-```sh
-/opt/fleet/lib/deploy-static.sh local-records-continuity dist/site
-```
-
-## Known gaps and next steps
-
-None. The CLI intentionally does not claim a full application restore; users
-must periodically test an import into their own application, as stated in the
-product and terms.
+- Release-blocking: none.
+- High: none.
+- Medium: none.
+- Low: none.
+- Known gaps: none within the acceptance contract.
